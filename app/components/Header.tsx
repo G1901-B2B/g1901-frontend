@@ -1,5 +1,6 @@
 import { UserButton, SignedIn, SignedOut } from '@clerk/nextjs'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Header() {
   return (
@@ -37,6 +38,15 @@ export default function Header() {
             </Link>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
+
+          <Image 
+            src="/logo.png" 
+            alt="GitGuide Logo" 
+            width={120} 
+            height={40}
+            className="object-contain"
+            priority
+          />
         </div>
       </nav>
     </header>

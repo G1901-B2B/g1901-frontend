@@ -54,3 +54,38 @@ export async function createProjectClient(data: CreateProjectData, token: string
   }
 }
 
+/**
+ * Delete a project (client-side)
+ * Requires token from useAuth hook
+ */
+export async function deleteProject(projectId: string, token: string | null) {
+  try {
+    if (!token) {
+      throw new Error('Authentication required')
+    }
+    
+    const headers = getAuthHeadersClient(token)
+    
+    const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
+      method: 'DELETE',
+      headers,
+    })
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to delete project (${response.status})`
+      try {
+        const error = await response.json()
+        errorMessage = error.detail || error.message || errorMessage
+      } catch {
+        errorMessage = response.statusText || errorMessage
+      }
+      throw new Error(errorMessage)
+    }
+    
+    return await response.json()
+  } catch (error) {
+    console.error('Failed to delete project:', error)
+    throw error
+  }
+}
+

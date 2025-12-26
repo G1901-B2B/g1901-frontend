@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import CreateProjectModal from '../projects/CreateProjectModal'
 import { type Project } from '../../lib/api'
+import { deleteProject } from '../../lib/api-client'
 
 interface DashboardContentProps {
   projects: Project[]
@@ -11,8 +13,13 @@ interface DashboardContentProps {
 
 export default function DashboardContent({ projects: initialProjects }: DashboardContentProps) {
   const router = useRouter()
+  const { getToken } = useAuth()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
   // Refresh projects when modal closes (in case a new project was created)
   const handleModalClose = () => {
@@ -30,6 +37,64 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
       year: 'numeric' 
     })
   }
+
+  // Handle menu toggle
+  const handleMenuToggle = (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation()
+    setOpenMenuId(openMenuId === projectId ? null : projectId)
+  }
+
+  // Handle delete confirmation
+  const handleDeleteClick = (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation()
+    setOpenMenuId(null)
+    setDeleteConfirmId(projectId)
+  }
+
+  // Handle delete confirmation cancel
+  const handleDeleteCancel = () => {
+    setDeleteConfirmId(null)
+  }
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return
+    
+    setIsDeleting(true)
+    try {
+      const token = await getToken()
+      await deleteProject(deleteConfirmId, token)
+      
+      // Optimistic update - remove from local state
+      setProjects(projects.filter(p => p.project_id !== deleteConfirmId))
+      setDeleteConfirmId(null)
+      
+      // Refresh to sync with server
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to delete project:', error)
+      alert('Failed to delete project. Please try again.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId) {
+        const menuElement = menuRefs.current[openMenuId]
+        if (menuElement && !menuElement.contains(event.target as Node)) {
+          setOpenMenuId(null)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openMenuId])
 
   return (
     <>
@@ -136,17 +201,28 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
                   </div>
 
                   {/* Options Menu */}
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      // TODO: Add project options menu
-                    }}
-                    className="absolute top-4 right-4 w-8 h-8 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-                    </svg>
-                  </button>
+                  <div className="absolute top-4 right-4" ref={(el) => menuRefs.current[project.project_id] = el}>
+                    <button 
+                      onClick={(e) => handleMenuToggle(e, project.project_id)}
+                      className="w-8 h-8 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {openMenuId === project.project_id && (
+                      <div className="absolute right-0 top-10 mt-1 w-48 bg-[#3f4449] rounded-lg shadow-lg border border-zinc-600 z-50">
+                        <button
+                          onClick={(e) => handleDeleteClick(e, project.project_id)}
+                          className="w-full px-4 py-2 text-left text-[13px] text-red-400 hover:bg-zinc-700 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -164,6 +240,35 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
         isOpen={isModalOpen} 
         onClose={handleModalClose}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#3f4449] rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-600">
+            <h3 className="text-lg font-semibold text-white mb-2">Delete Project</h3>
+            <p className="text-zinc-300 mb-6">
+              Are you sure you want to delete "{projects.find(p => p.project_id === deleteConfirmId)?.project_name}"? 
+              This will permanently delete the project, all chunks, and embeddings. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDeleteCancel}
+                disabled={isDeleting}
+                className="px-4 py-2 text-[13px] font-medium text-zinc-300 bg-zinc-600 rounded-lg hover:bg-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

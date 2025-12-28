@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import Header from '../../components/Header'
+import ChatbotWidget from '../../components/chatbot/ChatbotWidget'
 import { getProject, type Project } from '../../lib/api'
 
 interface ProjectPageProps {
@@ -120,6 +121,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
       </div>
+      
+      <ChatbotWidget />
     </>
   )
 }

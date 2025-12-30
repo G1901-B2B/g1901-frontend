@@ -9,9 +9,17 @@ export interface ChatMessage {
   content: string
 }
 
+export interface RoadmapContext {
+  day_number?: number | null
+  day_theme?: string | null
+  concept_title?: string | null
+  subconcept_title?: string | null
+}
+
 export interface ChatRequest {
   message: string
   conversation_history: ChatMessage[]
+  roadmap_context?: RoadmapContext | null
 }
 
 export interface ChatResponse {
@@ -38,7 +46,8 @@ export async function sendChatMessage(
   projectId: string,
   message: string,
   conversationHistory: ChatMessage[],
-  token: string | null
+  token: string | null,
+  roadmapContext?: RoadmapContext | null
 ): Promise<ChatResponse> {
   try {
     if (!token) {
@@ -50,6 +59,7 @@ export async function sendChatMessage(
     const requestBody: ChatRequest = {
       message,
       conversation_history: conversationHistory,
+      roadmap_context: roadmapContext || null,
     }
     
     const response = await fetch(`${API_URL}/api/chatbot/${projectId}/chat`, {

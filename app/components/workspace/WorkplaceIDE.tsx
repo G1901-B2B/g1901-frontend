@@ -4,9 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { type TaskDetails, type Task } from '../../lib/api-roadmap'
 import CodeEditor from './CodeEditor'
-import ReadingViewer from './ReadingViewer'
-import ResearchPanel from './ResearchPanel'
-import QuizPanel from './QuizPanel'
 import GitHubTaskPanel from './GitHubTaskPanel'
 
 interface NextNavigation {
@@ -28,12 +25,6 @@ const getTaskTypeStyle = (taskType: Task['task_type']) => {
   switch (taskType) {
     case 'coding':
       return { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' }
-    case 'reading':
-      return { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' }
-    case 'research':
-      return { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20' }
-    case 'quiz':
-      return { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' }
     case 'github_profile':
     case 'create_repo':
     case 'verify_commit':
@@ -61,15 +52,6 @@ export default function WorkplaceIDE({ taskDetails, initialCompleted, onProgress
       case 'coding':
         return <CodeEditor task={task} projectId={project.project_id} onComplete={handleComplete} initialCompleted={isCompleted} />
         
-      case 'reading':
-        return <ReadingViewer task={task} projectId={project.project_id} onComplete={handleComplete} initialCompleted={isCompleted} />
-        
-      case 'research':
-        return <ResearchPanel task={task} projectId={project.project_id} onComplete={handleComplete} initialCompleted={isCompleted} />
-        
-      case 'quiz':
-        return <QuizPanel task={task} projectId={project.project_id} onComplete={handleComplete} initialCompleted={isCompleted} />
-        
       case 'github_profile':
       case 'create_repo':
       case 'verify_commit':
@@ -87,6 +69,36 @@ export default function WorkplaceIDE({ taskDetails, initialCompleted, onProgress
     }
   }
 
+  // For coding tasks, use full-screen Cursor-like layout
+  if (task.task_type === 'coding') {
+    return (
+      <div className="h-[calc(100vh-4rem)] bg-[#1e1e1e] flex flex-col">
+        {/* Minimal Nav Bar */}
+        <div className="h-10 bg-[#2d2d2d] border-b border-zinc-800 flex items-center px-4 gap-4">
+          <Link 
+            href={`/project/${project.project_id}`}
+            className="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 text-xs transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Roadmap
+          </Link>
+          <div className="h-4 w-px bg-zinc-700"></div>
+          <span className="text-xs text-zinc-500">Day {day.day_number}</span>
+          <span className="text-zinc-600">·</span>
+          <span className="text-xs text-zinc-400">{concept.title}</span>
+        </div>
+
+        {/* Full Height Workspace */}
+        <div className="flex-1 overflow-hidden">
+          {renderWorkspace()}
+        </div>
+      </div>
+    )
+  }
+
+  // For other tasks (GitHub tasks), use the original layout
   return (
     <div className="min-h-screen bg-[#faf9f7] flex flex-col">
       {/* Clean Header */}

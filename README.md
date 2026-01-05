@@ -2,6 +2,8 @@
 
 Next.js 16 frontend application for the AI Tutor platform. Provides a user interface for creating projects, viewing learning roadmaps, and interacting with the AI chatbot.
 
+**🎯 Phase 0 Complete** - Cloud IDE interface with Monaco Editor and real file system integration.
+
 ## Project Structure
 
 ```
@@ -45,6 +47,12 @@ app/
 │   │   ├── TasksSection.tsx       # Task list display
 │   │   └── KanbanBoard.tsx        # Task kanban view
 │   │
+│   ├── workspace/         # 🆕 Cloud IDE components (Phase 0)
+│   │   ├── WorkplaceIDE.tsx       # Main workspace container
+│   │   ├── CodeEditor.tsx         # 🆕 Integrated code editor with file system
+│   │   ├── MonacoEditor.tsx       # 🆕 Monaco editor wrapper (VS Code engine)
+│   │   └── FileExplorer.tsx       # 🆕 File tree with CRUD operations
+│   │
 │   ├── chatbot/
 │   │   └── ChatbotWidget.tsx      # Chat interface component
 │   │
@@ -58,8 +66,10 @@ app/
 │   ├── api-auth.ts        # Authentication API calls
 │   ├── api-users.ts       # User API calls
 │   ├── api-projects.ts    # Project API calls
-│   ├── api-roadmap.ts    # Roadmap API calls
-│   └── api-chatbot.ts    # Chatbot API calls
+│   ├── api-roadmap.ts     # Roadmap API calls
+│   ├── api-chatbot.ts     # Chatbot API calls
+│   ├── api-workspace.ts   # 🆕 Workspace & file system API calls
+│   └── constants.ts       # API base URL configuration
 │
 ├── hooks/                 # Custom React hooks
 │   ├── useRoadmap.ts      # Roadmap data fetching hook
@@ -81,6 +91,7 @@ app/
 **Client Components** (marked with `'use client'`):
 - All components in `app/components/` are client components
 - Interactive UI elements (modals, forms, chat widgets)
+- **🆕 Monaco Editor and File Explorer for workspace**
 
 ### Authentication Flow
 
@@ -110,6 +121,12 @@ Page Component → API Function (lib/api-*.ts) → Backend API → Render
 Component → Hook (useRoadmap, useProgress) → API Function → Backend API → State Update
 ```
 
+**🆕 Workspace Flow (Phase 0):**
+```
+CodeEditor Mount → getOrCreateWorkspace() → startWorkspace() → FileExplorer loads files
+User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Container updated
+```
+
 ### API Client Architecture
 
 **Base Client** (`lib/api-client.ts`):
@@ -118,7 +135,7 @@ Component → Hook (useRoadmap, useProgress) → API Function → Backend API �
 - Base URL configuration
 
 **Feature Modules** (`lib/api-*.ts`):
-- Organized by domain (projects, roadmap, chatbot)
+- Organized by domain (projects, roadmap, chatbot, **workspace**)
 - Type-safe API calls
 - Reusable across server and client components
 
@@ -138,6 +155,38 @@ Component → Hook (useRoadmap, useProgress) → API Function → Backend API �
 - Chat interface for RAG queries
 - Manages conversation history
 - Integrates with backend chatbot API
+
+### 🆕 Phase 0 Components
+
+**CodeEditor** (`components/workspace/CodeEditor.tsx`):
+- Main workspace container component
+- Auto-initializes Docker workspace on mount
+- Manages open files with tabs
+- Tracks unsaved changes (dirty files)
+- Integrates FileExplorer, MonacoEditor, and task panel
+- Coordinates save operations to container
+
+**MonacoEditor** (`components/workspace/MonacoEditor.tsx`):
+- VS Code's editor engine via `@monaco-editor/react`
+- Automatic language detection from file extension
+- Syntax highlighting for 15+ languages
+- Ctrl+S / Cmd+S save handler
+- Dark theme (`vs-dark`) with Fira Code font
+- Auto-resize on container change
+
+**FileExplorer** (`components/workspace/FileExplorer.tsx`):
+- Recursive tree view of container filesystem
+- Create new files/folders via header buttons
+- Right-click context menu (Rename, Delete)
+- Inline rename editing
+- Click to open file in editor
+- Auto-refresh after operations
+
+**api-workspace.ts** (`lib/api-workspace.ts`):
+- `createWorkspace()` / `getOrCreateWorkspace()` - Workspace lifecycle
+- `startWorkspace()` / `stopWorkspace()` - Container control
+- `listFiles()` / `readFile()` / `writeFile()` - File operations
+- `createFile()` / `deleteFile()` / `renameFile()` - File CRUD
 
 ## Navigation Guide
 
@@ -167,9 +216,18 @@ Component → Hook (useRoadmap, useProgress) → API Function → Backend API �
 2. Update `app/layout.tsx` for Clerk configuration
 3. Adjust API client auth in `lib/api-client.ts`
 
+**🆕 To modify workspace behavior:**
+1. Update `CodeEditor.tsx` for layout/coordination changes
+2. Modify `MonacoEditor.tsx` for editor configuration
+3. Adjust `FileExplorer.tsx` for file tree behavior
+4. Update `api-workspace.ts` for API calls
+
 ## Running the Application
 
 ```bash
+# Install dependencies
+npm install
+
 # Development
 npm run dev
 
@@ -190,9 +248,27 @@ Required environment variables:
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
 - `CLERK_SECRET_KEY` - Clerk secret key (for server-side)
 
+## Dependencies (Phase 0)
+
+```json
+{
+  "@monaco-editor/react": "^4.6.0"
+}
+```
+
 ## Styling
 
 - Tailwind CSS v4 for styling
 - Custom CSS in `app/globals.css`
 - Geist font family for typography
 - Dark theme with zinc color palette
+- VS Code-inspired workspace UI
+
+---
+
+## Development Roadmap
+
+- [x] **Phase 0**: Workspace Foundation (Monaco Editor + File Explorer + Docker integration)
+- [ ] **Phase 1**: Terminal & Real Execution (xterm.js + WebSocket)
+- [ ] **Phase 2**: Git Integration (Clone, Commit, Push UI)
+- [ ] **Phase 3**: Verification System (AI task verification UI)

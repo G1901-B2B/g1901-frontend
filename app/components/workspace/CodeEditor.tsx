@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { type Task, completeTask } from '../../lib/api-roadmap'
+import { getOrCreateWorkspace, readFile, writeFile, type WorkspaceInfo } from '../../lib/api-workspace'
+import MonacoEditor from './MonacoEditor'
+import FileExplorer from './FileExplorer'
 
 interface CodeEditorProps {
   task: Task
@@ -10,14 +13,69 @@ interface CodeEditorProps {
   onComplete: () => void
 }
 
+interface OpenFile {
+  path: string
+  content: string
+  isDirty: boolean
+  originalContent: string
+}
+
 export default function CodeEditor({ task, projectId, onComplete, initialCompleted }: CodeEditorProps & { initialCompleted?: boolean }) {
   const { getToken } = useAuth()
-  const [code, setCode] = useState('')
+  
+  // Workspace state
+  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null)
+  const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
+  
+  // File state
+  const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
+  const [isLoadingFile, setIsLoadingFile] = useState(false)
+  
+  // Editor state
   const [output, setOutput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [isCompleted, setIsCompleted] = useState(initialCompleted || false)
   const [isVerifying, setIsVerifying] = useState(false)
-  
+
+  // Get active file
+  const activeFile = openFiles.find(f => f.path === activeFilePath)
+
+  // Initialize workspace
+  useEffect(() => {
+    let mounted = true
+    
+    async function initWorkspace() {
+      try {
+        setIsLoadingWorkspace(true)
+        setWorkspaceError(null)
+        
+        const token = await getToken()
+        if (!token || !mounted) return
+        
+        const ws = await getOrCreateWorkspace(projectId, token)
+        if (mounted) {
+          setWorkspace(ws)
+        }
+      } catch (err) {
+        console.error('Failed to init workspace:', err)
+        if (mounted) {
+          setWorkspaceError(err instanceof Error ? err.message : 'Failed to initialize workspace')
+        }
+      } finally {
+        if (mounted) {
+          setIsLoadingWorkspace(false)
+        }
+      }
+    }
+    
+    initWorkspace()
+    return () => { mounted = false }
+  }, [projectId, getToken])
+
+  // Handle initial completed state
   useEffect(() => {
     if (initialCompleted) {
       setIsCompleted(true)
@@ -25,8 +83,112 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
     }
   }, [initialCompleted, onComplete])
 
+  // Open a file
+  const handleFileSelect = useCallback(async (path: string) => {
+    if (!workspace) return
+    
+    // Check if already open
+    const existing = openFiles.find(f => f.path === path)
+    if (existing) {
+      setActiveFilePath(path)
+      return
+    }
+    
+    // Load file content
+    try {
+      setIsLoadingFile(true)
+      const token = await getToken()
+      if (!token) return
+      
+      const content = await readFile(workspace.workspace_id, path, token)
+      
+      setOpenFiles(prev => [...prev, {
+        path,
+        content,
+        originalContent: content,
+        isDirty: false,
+      }])
+      setActiveFilePath(path)
+    } catch (err) {
+      console.error('Failed to open file:', err)
+      setOutput(`Failed to open file: ${path}`)
+    } finally {
+      setIsLoadingFile(false)
+    }
+  }, [workspace, openFiles, getToken])
+
+  // Update file content
+  const handleContentChange = useCallback((newContent: string) => {
+    if (!activeFilePath) return
+    
+    setOpenFiles(prev => prev.map(f => {
+      if (f.path === activeFilePath) {
+        return {
+          ...f,
+          content: newContent,
+          isDirty: newContent !== f.originalContent,
+        }
+      }
+      return f
+    }))
+  }, [activeFilePath])
+
+  // Save current file
+  const handleSave = useCallback(async () => {
+    if (!workspace || !activeFile || !activeFile.isDirty) return
+    
+    try {
+      setIsSaving(true)
+      const token = await getToken()
+      if (!token) return
+      
+      await writeFile(workspace.workspace_id, activeFile.path, activeFile.content, token)
+      
+      setOpenFiles(prev => prev.map(f => {
+        if (f.path === activeFile.path) {
+          return {
+            ...f,
+            originalContent: activeFile.content,
+            isDirty: false,
+          }
+        }
+        return f
+      }))
+      
+      setOutput('✓ File saved successfully')
+    } catch (err) {
+      console.error('Failed to save file:', err)
+      setOutput(`Failed to save file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [workspace, activeFile, getToken])
+
+  // Close a file tab
+  const handleCloseTab = useCallback((path: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    const fileToClose = openFiles.find(f => f.path === path)
+    if (fileToClose?.isDirty) {
+      if (!confirm('You have unsaved changes. Close anyway?')) {
+        return
+      }
+    }
+    
+    setOpenFiles(prev => prev.filter(f => f.path !== path))
+    
+    // Switch to another tab if closing active
+    if (activeFilePath === path) {
+      const remaining = openFiles.filter(f => f.path !== path)
+      setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1].path : null)
+    }
+  }, [openFiles, activeFilePath])
+
+  // Verify task
   const handleVerifyTask = async () => {
-    if (code.trim().length < 10) {
+    // Check if there's any written code
+    const hasCode = openFiles.some(f => f.content.trim().length > 10)
+    if (!hasCode) {
       setOutput('Please write some code before verifying.')
       return
     }
@@ -48,6 +210,7 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
     }
   }
 
+  // Run code (placeholder for now)
   const handleRun = async () => {
     setIsRunning(true)
     setTimeout(() => {
@@ -56,124 +219,153 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
     }, 1000)
   }
 
-  const handleSave = () => {
-    console.log('Saving code:', code)
+  // Get filename from path
+  const getFilename = (path: string) => path.split('/').pop() || path
+
+  // Loading state
+  if (isLoadingWorkspace) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-zinc-600 border-t-blue-500 rounded-full animate-spin"></div>
+          <span className="text-sm text-zinc-400">Initializing workspace...</span>
+        </div>
+      </div>
+    )
   }
 
-  // Placeholder files for file explorer
-  const files = [
-    { name: 'main.tsx', type: 'file', active: true },
-    { name: 'styles.css', type: 'file', active: false },
-    { name: 'utils.ts', type: 'file', active: false },
-  ]
+  // Error state
+  if (workspaceError) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
+        <div className="flex flex-col items-center gap-3 max-w-md text-center">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <span className="text-sm text-zinc-400">{workspaceError}</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e]">
       {/* Main Content Area */}
       <div className="flex flex-1 min-h-0">
         {/* Left Panel - File Explorer */}
-        <div className="w-48 bg-[#252526] border-r border-zinc-800 flex flex-col">
-          {/* Files Header */}
-          <div className="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
-            <span className="text-xs text-zinc-400 uppercase tracking-wide font-medium">Explorer</span>
-            <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </button>
-          </div>
-          
-          {/* File Tree */}
-          <div className="flex-1 overflow-y-auto py-2">
-            <div className="px-2">
-              <div className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                <span className="font-medium">src</span>
-              </div>
-              {files.map((file, index) => (
-                <div 
-                  key={index}
-                  className={`flex items-center gap-2 px-4 py-1 text-xs cursor-pointer rounded transition-colors ${
-                    file.active 
-                      ? 'bg-zinc-700/50 text-zinc-200' 
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
-                  }`}
-                >
-                  {file.name.endsWith('.tsx') || file.name.endsWith('.ts') ? (
-                    <svg className="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3 3h18v18H3V3zm16.525 13.707c-.131-.821-.666-1.511-2.252-2.155-.552-.259-1.165-.438-1.349-.854-.068-.248-.078-.382-.034-.529.113-.484.687-.629 1.137-.495.293.09.563.315.732.676.775-.507.775-.507 1.316-.844-.203-.314-.304-.451-.439-.586-.473-.528-1.103-.798-2.126-.775l-.528.067c-.507.124-.991.395-1.283.754-.855.968-.608 2.655.427 3.354 1.023.765 2.521.933 2.712 1.653.18.878-.652 1.159-1.475 1.058-.607-.136-.945-.439-1.316-1.002l-1.372.788c.157.359.337.517.607.832 1.305 1.316 4.568 1.249 5.153-.754.021-.067.18-.528.056-1.237l.034.003zm-6.737-5.434h-1.686c0 1.453-.007 2.898-.007 4.354 0 .924.047 1.772-.104 2.033-.247.517-.886.451-1.175.359-.297-.146-.448-.349-.623-.641-.047-.078-.082-.146-.095-.146l-1.368.844c.229.473.563.879.994 1.137.641.383 1.502.507 2.404.305.588-.17 1.095-.519 1.358-1.059.384-.697.302-1.553.299-2.509.008-1.541 0-3.083 0-4.635l.003-.042z"/>
-                    </svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M5.7 4.5C5.4 4.5 5 4.8 5 5.2v13.6c0 .4.4.7.7.7h12.6c.4 0 .7-.3.7-.7V5.2c0-.4-.3-.7-.7-.7H5.7zm1.5 3h9.6v1.4H7.2V7.5zm0 3h9.6v1.4H7.2v-1.4zm0 3h6.5v1.4H7.2v-1.4z"/>
-                    </svg>
-                  )}
-                  <span>{file.name}</span>
-                </div>
-              ))}
+        <div className="w-56 bg-[#252526] border-r border-zinc-800 flex flex-col">
+          {workspace ? (
+            <FileExplorer
+              workspaceId={workspace.workspace_id}
+              onFileSelect={handleFileSelect}
+              selectedFile={activeFilePath || undefined}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
+              No workspace
             </div>
-          </div>
+          )}
         </div>
 
         {/* Center Panel - Code Editor */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Editor Header */}
-          <div className="px-4 py-2 border-b border-zinc-800 bg-[#2d2d2d] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
-                <span className="w-3 h-3 rounded-full bg-yellow-500/80"></span>
-                <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
+          {/* File Tabs */}
+          <div className="flex items-center bg-[#252526] border-b border-zinc-800 overflow-x-auto">
+            {openFiles.map((file) => (
+              <div
+                key={file.path}
+                onClick={() => setActiveFilePath(file.path)}
+                className={`flex items-center gap-2 px-3 py-2 cursor-pointer border-r border-zinc-800 min-w-0 ${
+                  activeFilePath === file.path
+                    ? 'bg-[#1e1e1e] text-zinc-200'
+                    : 'bg-[#2d2d2d] text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <span className="text-xs font-mono truncate">{getFilename(file.path)}</span>
+                {file.isDirty && <span className="w-2 h-2 rounded-full bg-amber-500"></span>}
+                <button
+                  onClick={(e) => handleCloseTab(file.path, e)}
+                  className="ml-1 text-zinc-600 hover:text-zinc-300 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <span className="text-xs text-zinc-400 ml-2 font-mono">main.tsx</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSave}
-                className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-700/50 hover:bg-zinc-600 rounded transition-colors"
-              >
-                Save
-              </button>
-              <button
-                onClick={handleRun}
-                disabled={isRunning}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isRunning ? (
-                  <>
-                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                    </svg>
-                    Run
-                  </>
-                )}
-              </button>
-            </div>
+            ))}
+            
+            {openFiles.length === 0 && (
+              <div className="px-4 py-2 text-xs text-zinc-600">
+                Select a file to edit
+              </div>
+            )}
           </div>
+
+          {/* Editor Header */}
+          {activeFile && (
+            <div className="px-4 py-2 border-b border-zinc-800 bg-[#2d2d2d] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 font-mono">{activeFile.path}</span>
+                {isLoadingFile && (
+                  <span className="w-3 h-3 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving || !activeFile.isDirty}
+                  className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-700/50 hover:bg-zinc-600 rounded transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={handleRun}
+                  disabled={isRunning}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isRunning ? (
+                    <>
+                      <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                      Run
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Code Editor Area */}
           <div className="flex-1 relative min-h-0">
-            {/* Line Numbers */}
-            <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#1e1e1e] border-r border-zinc-800/50 flex flex-col pt-4 text-right pr-3 overflow-hidden">
-              {Array.from({ length: Math.max(20, code.split('\n').length + 5) }, (_, i) => (
-                <span key={i} className="text-xs text-zinc-600 leading-6 font-mono">{i + 1}</span>
-              ))}
-            </div>
-            <textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Write your code here..."
-              className="w-full h-full bg-[#1e1e1e] text-zinc-200 font-mono text-sm p-4 pl-16 focus:outline-none resize-none leading-6"
-              style={{ fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace' }}
-              spellCheck={false}
-            />
+            {activeFile ? (
+              <MonacoEditor
+                value={activeFile.content}
+                onChange={handleContentChange}
+                path={activeFile.path}
+                onSave={handleSave}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-zinc-500">
+                <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <p className="text-sm">Select a file from the explorer to start editing</p>
+              </div>
+            )}
           </div>
         </div>
 

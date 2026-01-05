@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.2",
+    "@monaco-editor/react": "^4.7.0",
     "@types/react-syntax-highlighter": "^15.5.13",
     "next": "16.0.10",
     "react": "19.2.1",

@@ -1,0 +1,294 @@
+/**
+ * Workspace API Client
+ * Functions for interacting with workspace file system and container management.
+ */
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Types
+
+export interface FileItem {
+  name: string
+  path: string
+  is_directory: boolean
+  size: number
+  permissions: string
+}
+
+export interface ListFilesResponse {
+  success: boolean
+  path: string
+  files: FileItem[]
+}
+
+export interface ReadFileResponse {
+  success: boolean
+  path: string
+  content: string
+}
+
+export interface WorkspaceInfo {
+  workspace_id: string
+  user_id: string
+  project_id: string
+  container_id: string
+  container_status: string
+  created_at: string
+  last_active_at: string
+}
+
+// Workspace Management
+
+export async function createWorkspace(
+  projectId: string,
+  token: string
+): Promise<{ success: boolean; workspace: WorkspaceInfo }> {
+  const response = await fetch(`${API_BASE}/api/workspaces/create`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ project_id: projectId }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to create workspace' }))
+    throw new Error(error.detail || 'Failed to create workspace')
+  }
+
+  return response.json()
+}
+
+export async function getWorkspaceByProject(
+  projectId: string,
+  token: string
+): Promise<{ success: boolean; workspace: WorkspaceInfo | null }> {
+  const response = await fetch(`${API_BASE}/api/workspaces/project/${projectId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (response.status === 404) {
+    return { success: true, workspace: null }
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to get workspace' }))
+    throw new Error(error.detail || 'Failed to get workspace')
+  }
+
+  return response.json()
+}
+
+export async function getOrCreateWorkspace(
+  projectId: string,
+  token: string
+): Promise<WorkspaceInfo> {
+  // Try to get existing workspace first
+  const existing = await getWorkspaceByProject(projectId, token)
+  
+  if (existing.workspace) {
+    // If container is not running, start it
+    if (existing.workspace.container_status !== 'running') {
+      await startWorkspace(existing.workspace.workspace_id, token)
+      // Refresh to get updated status
+      const refreshed = await getWorkspaceByProject(projectId, token)
+      if (refreshed.workspace) {
+        return refreshed.workspace
+      }
+    }
+    return existing.workspace
+  }
+
+  // Create new workspace
+  const created = await createWorkspace(projectId, token)
+  return created.workspace
+}
+
+export async function startWorkspace(
+  workspaceId: string,
+  token: string
+): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/workspaces/${workspaceId}/start`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to start workspace' }))
+    throw new Error(error.detail || 'Failed to start workspace')
+  }
+
+  return response.json()
+}
+
+export async function stopWorkspace(
+  workspaceId: string,
+  token: string
+): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/workspaces/${workspaceId}/stop`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to stop workspace' }))
+    throw new Error(error.detail || 'Failed to stop workspace')
+  }
+
+  return response.json()
+}
+
+// File System Operations
+
+export async function listFiles(
+  workspaceId: string,
+  path: string,
+  token: string
+): Promise<FileItem[]> {
+  const params = new URLSearchParams({ path })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files?${params}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to list files' }))
+    throw new Error(error.detail || 'Failed to list files')
+  }
+
+  const data: ListFilesResponse = await response.json()
+  return data.files
+}
+
+export async function readFile(
+  workspaceId: string,
+  filePath: string,
+  token: string
+): Promise<string> {
+  const params = new URLSearchParams({ path: filePath })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files/content?${params}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to read file' }))
+    throw new Error(error.detail || 'Failed to read file')
+  }
+
+  const data: ReadFileResponse = await response.json()
+  return data.content
+}
+
+export async function writeFile(
+  workspaceId: string,
+  filePath: string,
+  content: string,
+  token: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files/content`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: filePath, content }),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to write file' }))
+    throw new Error(error.detail || 'Failed to write file')
+  }
+}
+
+export async function createFile(
+  workspaceId: string,
+  filePath: string,
+  isDirectory: boolean,
+  token: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: filePath, is_directory: isDirectory }),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to create file' }))
+    throw new Error(error.detail || 'Failed to create file')
+  }
+}
+
+export async function deleteFile(
+  workspaceId: string,
+  filePath: string,
+  token: string
+): Promise<void> {
+  const params = new URLSearchParams({ path: filePath })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files?${params}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to delete file' }))
+    throw new Error(error.detail || 'Failed to delete file')
+  }
+}
+
+export async function renameFile(
+  workspaceId: string,
+  oldPath: string,
+  newPath: string,
+  token: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/files/rename`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to rename file' }))
+    throw new Error(error.detail || 'Failed to rename file')
+  }
+}
+

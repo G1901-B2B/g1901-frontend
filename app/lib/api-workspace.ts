@@ -292,3 +292,73 @@ export async function renameFile(
   }
 }
 
+// Terminal Session Types
+
+export interface TerminalSession {
+  session_id: string
+  workspace_id: string
+  name: string
+  is_active: boolean
+  created_at: string
+}
+
+export async function createTerminalSession(
+  workspaceId: string,
+  name: string,
+  token: string
+): Promise<TerminalSession> {
+  const response = await fetch(`${API_BASE}/api/terminal/sessions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ workspace_id: workspaceId, name }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to create terminal session' }))
+    throw new Error(error.detail || 'Failed to create terminal session')
+  }
+
+  const data = await response.json()
+  return data.session
+}
+
+export async function listTerminalSessions(
+  workspaceId: string,
+  token: string
+): Promise<TerminalSession[]> {
+  const response = await fetch(`${API_BASE}/api/terminal/sessions/${workspaceId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to list terminal sessions' }))
+    throw new Error(error.detail || 'Failed to list terminal sessions')
+  }
+
+  const data = await response.json()
+  return data.sessions
+}
+
+export async function deleteTerminalSession(
+  sessionId: string,
+  token: string
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/terminal/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to delete terminal session' }))
+    throw new Error(error.detail || 'Failed to delete terminal session')
+  }
+}
+

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { getConceptDetails, markContentRead, type ConceptDetails } from '../../lib/api-roadmap'
@@ -265,6 +266,7 @@ export default function DocsPage() {
           {/* Markdown Content - Optimized for Reading */}
           <div className="docs-content">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => (
                   <h1 className="text-3xl font-bold text-stone-900 mt-14 mb-6 tracking-tight" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
@@ -338,37 +340,49 @@ export default function DocsPage() {
                   <hr className="my-12 border-none h-px bg-gradient-to-r from-transparent via-stone-300 to-transparent" />
                 ),
                 table: ({ children }) => (
-                  <div className="my-8 overflow-x-auto rounded-lg border border-stone-200">
-                    <table className="w-full text-sm">
+                  <div className="my-8 overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
+                    <table className="w-full text-sm border-collapse">
                       {children}
                     </table>
                   </div>
                 ),
                 thead: ({ children }) => (
-                  <thead className="bg-stone-100 border-b border-stone-200">
+                  <thead className="bg-gradient-to-b from-stone-100 to-stone-50">
                     {children}
                   </thead>
                 ),
+                tr: ({ children, isHeader }) => (
+                  <tr className={isHeader ? '' : 'hover:bg-amber-50/50 transition-colors'}>
+                    {children}
+                  </tr>
+                ),
                 th: ({ children }) => (
-                  <th className="px-4 py-3 text-left font-semibold text-stone-700">
+                  <th className="px-5 py-3.5 text-left font-semibold text-stone-800 border-b-2 border-stone-200 whitespace-nowrap">
                     {children}
                   </th>
                 ),
                 tbody: ({ children }) => (
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y divide-stone-100 bg-white">
                     {children}
                   </tbody>
                 ),
                 td: ({ children }) => (
-                  <td className="px-4 py-3 text-stone-600">
+                  <td className="px-5 py-3.5 text-stone-600 align-top">
                     {children}
                   </td>
                 ),
-                code({ className, children, inline, ...props }) {
+                code({ className, children, node, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
+                  const codeString = String(children).replace(/\n$/, '')
                   
-                  // Handle inline code
-                  if (inline) {
+                  // Detect if this is inline code:
+                  // - No className with language prefix
+                  // - No newlines in content
+                  // - Not wrapped by pre (check node parent)
+                  const isInline = !className && !codeString.includes('\n')
+                  
+                  // Handle inline code - must return inline element (span/code)
+                  if (isInline) {
                     return (
                       <code className="px-1.5 py-0.5 bg-stone-100 text-amber-700 rounded text-[0.9em] font-mono" {...props}>
                         {children}
@@ -376,9 +390,20 @@ export default function DocsPage() {
                     )
                   }
                   
-                  // Handle code blocks
-                  const codeString = String(children).replace(/\n$/, '')
+                  // Handle code blocks - return null, let pre handle it
+                  return (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  )
+                },
+                pre({ children, node, ...props }) {
+                  // Extract code content from children
+                  const codeElement = children as React.ReactElement
+                  const className = codeElement?.props?.className || ''
+                  const match = /language-(\w+)/.exec(className)
                   const language = match ? match[1] : 'text'
+                  const codeString = String(codeElement?.props?.children || '').replace(/\n$/, '')
                   
                   return (
                     <div className="my-8 rounded-xl overflow-hidden shadow-sm border border-stone-200">
@@ -406,16 +431,11 @@ export default function DocsPage() {
                           lineHeight: 1.7,
                           background: '#1e1e1e',
                         }}
-                        {...props}
                       >
                         {codeString}
                       </SyntaxHighlighter>
                     </div>
                   )
-                },
-                pre({ children }) {
-                  // Let the code component handle everything
-                  return <>{children}</>
                 },
               }}
             >

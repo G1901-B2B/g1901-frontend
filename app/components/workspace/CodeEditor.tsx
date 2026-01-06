@@ -6,6 +6,7 @@ import { type Task, completeTask } from '../../lib/api-roadmap'
 import { getOrCreateWorkspace, readFile, writeFile, type WorkspaceInfo } from '../../lib/api-workspace'
 import MonacoEditor from './MonacoEditor'
 import FileExplorer from './FileExplorer'
+import TerminalTabs from './TerminalTabs'
 
 interface CodeEditorProps {
   task: Task
@@ -102,12 +103,19 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
       
       const content = await readFile(workspace.workspace_id, path, token)
       
-      setOpenFiles(prev => [...prev, {
-        path,
-        content,
-        originalContent: content,
-        isDirty: false,
-      }])
+      // Use functional update to prevent duplicates from race conditions
+      setOpenFiles(prev => {
+        // Check again in case of race condition
+        if (prev.find(f => f.path === path)) {
+          return prev
+        }
+        return [...prev, {
+          path,
+          content,
+          originalContent: content,
+          isDirty: false,
+        }]
+      })
       setActiveFilePath(path)
     } catch (err) {
       console.error('Failed to open file:', err)
@@ -476,46 +484,14 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
       </div>
 
       {/* Bottom Panel - Terminal */}
-      <div className="h-36 border-t border-zinc-800 bg-[#1a1a1a] flex flex-col">
-        {/* Terminal Header */}
-        <div className="px-4 py-1.5 border-b border-zinc-800/50 flex items-center justify-between bg-[#252526]">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-2 py-1 text-xs text-zinc-300 border-b-2 border-blue-500">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Terminal
-            </div>
-            <span className="text-xs text-zinc-600 px-2 py-1 hover:text-zinc-400 cursor-pointer">Problems</span>
-            <span className="text-xs text-zinc-600 px-2 py-1 hover:text-zinc-400 cursor-pointer">Output</span>
+      <div className="h-48 border-t border-zinc-800">
+        {workspace ? (
+          <TerminalTabs workspaceId={workspace.workspace_id} />
+        ) : (
+          <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+            <span className="text-xs text-zinc-500">Waiting for workspace...</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </button>
-            <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        {/* Terminal Content */}
-        <div className="flex-1 p-3 font-mono text-sm overflow-y-auto">
-          {output ? (
-            <pre className={`${output.includes('✓') || output.includes('successfully') ? 'text-emerald-400' : 'text-zinc-400'}`}>
-              {output}
-            </pre>
-          ) : (
-            <div className="flex items-center gap-2 text-zinc-500">
-              <span className="text-emerald-500">$</span>
-              <span className="animate-pulse">_</span>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )

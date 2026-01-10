@@ -56,14 +56,7 @@ interface VerificationResult {
 
 type VerificationStatus = 'idle' | 'verifying' | 'success' | 'error'
 
-export default function GitHubTaskPanel({ 
-  task, 
-  project, 
-  onComplete, 
-  initialCompleted, 
-  nextTaskId, 
-  nextNavigation 
-}: GitHubTaskPanelProps) {
+export default function GitHubTaskPanel({ task, project, onComplete, initialCompleted }: GitHubTaskPanelProps) {
   const { getToken } = useAuth()
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<VerificationStatus>(initialCompleted ? 'success' : 'idle')
@@ -147,23 +140,6 @@ export default function GitHubTaskPanel({
     return null
   }
 
-  const githubFetch = async (url: string) => {
-    // In a production app, we would include a GitHub token here to avoid rate limiting.
-    // For now, we'll just handle the errors more gracefully.
-    const res = await fetch(url)
-    
-    if (res.status === 403 && res.headers.get('X-RateLimit-Remaining') === '0') {
-      throw new Error('GitHub API rate limit exceeded. Please try again later.')
-    }
-    
-    if (!res.ok) {
-      if (res.status === 404) throw new Error('Not found on GitHub')
-      throw new Error(`GitHub error: ${res.statusText}`)
-    }
-    
-    return res.json()
-  }
-
   const handleVerify = async () => {
     if (!input.trim() || status === 'verifying' || isCompleted) return
     setStatus('verifying')
@@ -174,7 +150,9 @@ export default function GitHubTaskPanel({
       if (task.task_type === 'github_profile') {
         const username = extractUsername(input)
         if (!username) throw new Error('Invalid GitHub profile URL')
-        const data = await githubFetch(`https://api.github.com/users/${username}`)
+        const res = await fetch(`https://api.github.com/users/${username}`)
+        if (!res.ok) throw new Error('User not found')
+        const data = await res.json()
         result = {
           success: !!data.name && !!data.bio,
           checks: [
@@ -185,7 +163,9 @@ export default function GitHubTaskPanel({
       } else if (task.task_type === 'create_repo') {
         const repo = extractRepo(input)
         if (!repo) throw new Error('Invalid repo URL')
-        const data = await githubFetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`)
+        const res = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`)
+        if (!res.ok) throw new Error('Repository not found')
+        const data = await res.json()
         result = {
           success: !data.private,
           checks: [
@@ -196,10 +176,13 @@ export default function GitHubTaskPanel({
       } else if (task.task_type === 'verify_commit') {
         const commit = extractCommit(input, project.github_url)
         if (!commit) throw new Error('Invalid commit URL or SHA')
-        const data = await githubFetch(`https://api.github.com/repos/${commit.owner}/${commit.repo}/commits/${commit.sha}`)
+        const res = await fetch(`https://api.github.com/repos/${commit.owner}/${commit.repo}/commits/${commit.sha}`)
+        if (!res.ok) throw new Error('Commit not found in repository')
+        const data = await res.json()
         
         // Basic check: commit exists and has a message
         const hasMessage = !!data.commit?.message
+        const isRecent = new Date(data.commit?.author?.date).getTime() > (Date.now() - 7 * 24 * 60 * 60 * 1000) // within last 7 days
         
         result = {
           success: hasMessage,

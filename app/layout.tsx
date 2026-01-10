@@ -25,9 +25,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  
+  if (!clerkPublishableKey) {
+    // During build, if key is missing, render without ClerkProvider to allow build to complete
+    // This will show an error at runtime, prompting user to set the environment variable
+    return (
+      <html lang="en" className="dark">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          <RoutePerformanceLogger />
+          {children}
+        </body>
+      </html>
+    );
+  }
+  
   return (
     <ClerkProvider
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      publishableKey={clerkPublishableKey}
       afterSignOutUrl="/"
       appearance={{
         variables: {

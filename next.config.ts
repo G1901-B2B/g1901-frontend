@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable React Compiler for automatic memoization (Next.js 16)
-  // Moved from experimental.reactCompiler to root level
-  reactCompiler: true,
-  
   // Performance optimizations
   experimental: {
     // Optimize package imports for better tree-shaking
@@ -18,9 +14,6 @@ const nextConfig: NextConfig = {
       exclude: ['error', 'warn'],
     } : false,
   },
-  
-  // Note: swcMinify is deprecated in Next.js 16 (SWC minification is enabled by default)
-  // Removed swcMinify: true
   
   // Optimize images
   images: {

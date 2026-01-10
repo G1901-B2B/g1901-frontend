@@ -1,5 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import type { NextMiddleware } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 const isPublicRoute = createRouteMatcher([
     '/',
@@ -15,7 +17,7 @@ const isClerkConfigured = !!(
 );
 
 // Wrap clerkMiddleware in try-catch to handle missing keys gracefully
-let authMiddleware: (request: Request) => Promise<Response> | Response;
+let authMiddleware: NextMiddleware;
 
 try {
   if (isClerkConfigured) {
@@ -36,13 +38,13 @@ try {
     });
   } else {
     // Passthrough middleware when Clerk is not configured
-    authMiddleware = function middleware() {
+    authMiddleware = function middleware(request: NextRequest) {
       return NextResponse.next();
     };
   }
 } catch (error) {
   // Fallback to passthrough if Clerk initialization fails
-  authMiddleware = function middleware() {
+  authMiddleware = function middleware(request: NextRequest) {
     return NextResponse.next();
   };
 }

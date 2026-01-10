@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import ReactMarkdown from 'react-markdown'
@@ -351,18 +351,13 @@ export default function DocsPage() {
                     {children}
                   </thead>
                 ),
-                tr: ({ children, isHeader }) => (
-                  <tr className={isHeader ? '' : 'hover:bg-amber-50/50 transition-colors'}>
-                    {children}
-                  </tr>
-                ),
                 th: ({ children }) => (
                   <th className="px-5 py-3.5 text-left font-semibold text-stone-800 border-b-2 border-stone-200 whitespace-nowrap">
                     {children}
                   </th>
                 ),
                 tbody: ({ children }) => (
-                  <tbody className="divide-y divide-stone-100 bg-white">
+                  <tbody className="divide-y divide-stone-100 bg-white [&>tr]:hover:bg-amber-50/50 [&>tr]:transition-colors">
                     {children}
                   </tbody>
                 ),
@@ -398,8 +393,16 @@ export default function DocsPage() {
                   )
                 },
                 pre({ children, node, ...props }) {
-                  // Extract code content from children
-                  const codeElement = children as React.ReactElement
+                  // Extract code content from children (react-markdown passes a <code> element here)
+                  const maybeCodeElement = Array.isArray(children) ? children[0] : children
+
+                  const codeElement = isValidElement(maybeCodeElement)
+                    ? (maybeCodeElement as ReactElement<{
+                        className?: string
+                        children?: ReactNode
+                      }>)
+                    : null
+
                   const className = codeElement?.props?.className || ''
                   const match = /language-(\w+)/.exec(className)
                   const language = match ? match[1] : 'text'

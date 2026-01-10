@@ -10,6 +10,7 @@ import {
   useSensor, 
   useSensors,
   DragEndEvent,
+  DragStartEvent,
   useDroppable
 } from '@dnd-kit/core'
 import { type Concept, type ConceptDetails } from '../../lib/api-roadmap'
@@ -125,8 +126,8 @@ export default function KanbanBoard({
     return progress?.progress_status || 'todo'
   }
 
-  const handleDragStart = (event: { active: { id: string } }) => {
-    setActiveId(event.active.id)
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id))
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -135,12 +136,12 @@ export default function KanbanBoard({
 
     if (!over) return
 
-    const conceptId = active.id as string
+    const conceptId = String(active.id)
     const activeConcept = concepts.find(c => c.concept_id === conceptId)
     if (!activeConcept) return
 
     const currentStatus = getConceptStatus(activeConcept)
-    const targetStatus = over.id as string
+    const targetStatus = String(over.id)
 
     if (currentStatus === targetStatus) return
 

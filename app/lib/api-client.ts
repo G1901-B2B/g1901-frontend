@@ -1,5 +1,6 @@
 'use client'
 
+import type { CreateProjectData } from './types'
 // Re-export type for convenience
 export type { CreateProjectData } from './types'
 

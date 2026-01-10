@@ -30,7 +30,7 @@ import {
   Clock
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 
 interface CodeEditorProps {
   task: Task

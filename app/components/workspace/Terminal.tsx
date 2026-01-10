@@ -131,8 +131,7 @@ export default function TerminalComponent({
     }
 
     log('INIT', 'Initializing terminal instance...')
-    // Import CSS
-    import('@xterm/xterm/css/xterm.css')
+    // xterm CSS is imported globally via app/globals.css (avoids TS errors on dynamic CSS imports)
 
     const term = new Terminal({
       cursorBlink: true,

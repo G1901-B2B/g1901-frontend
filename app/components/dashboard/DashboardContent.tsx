@@ -60,7 +60,12 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
   const [isDeleting, setIsDeleting] = useState(false)
   const [viewType, setViewType] = useState<ViewType>('grid')
   const [sortOption, setSortOption] = useState<SortOption>('most-recent')
+  const [mounted, setMounted] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const refreshProjects = async () => {
     try {
@@ -178,16 +183,18 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
           </div>
           
           <div className="flex items-center gap-4">
-            <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)} className="hidden sm:block">
-              <TabsList className="bg-zinc-900 border border-zinc-800">
-                <TabsTrigger value="grid" className="data-[state=active]:bg-zinc-800">
-                  <LayoutGrid className="w-4 h-4" />
-                </TabsTrigger>
-                <TabsTrigger value="list" className="data-[state=active]:bg-zinc-800">
-                  <ListIcon className="w-4 h-4" />
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {mounted && (
+              <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)} className="hidden sm:block">
+                <TabsList className="bg-zinc-900 border border-zinc-800">
+                  <TabsTrigger value="grid" className="data-[state=active]:bg-zinc-800">
+                    <LayoutGrid className="w-4 h-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="list" className="data-[state=active]:bg-zinc-800">
+                    <ListIcon className="w-4 h-4" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
 
             <select 
               value={sortOption}
@@ -292,24 +299,26 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
                   className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all group cursor-pointer relative"
                   onClick={() => router.push(`/project/${project.project_id}`)}
                 >
-                  <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
-                        <DropdownMenuItem 
-                          className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
-                          onClick={() => setDeleteConfirmId(project.project_id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Project
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  {mounted && (
+                    <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                          <DropdownMenuItem 
+                            className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
+                            onClick={() => setDeleteConfirmId(project.project_id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Project
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
 
                   <CardHeader className="pb-4">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold mb-4 shadow-lg shadow-blue-900/20">
@@ -376,25 +385,27 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
                           {getMotivationalMessage(project.skill_level)}
                         </span>
                         {getStatusBadge(project.status)}
-                        <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
-                        <DropdownMenuItem 
-                          className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(project.project_id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        {mounted && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                              <DropdownMenuItem 
+                                className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmId(project.project_id);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                   </div>
                 </div>
               ))}

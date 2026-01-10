@@ -97,6 +97,8 @@ export function useDayDetails(projectId: string, dayId: string | null) {
 
     async function fetchDayDetails() {
       try {
+        if (!dayId) return
+
         const token = await getToken()
         if (!token) {
           setError('Authentication required')
@@ -134,6 +136,8 @@ export function useConceptDetails(projectId: string, conceptId: string | null) {
 
     async function fetchConceptDetails() {
       try {
+        if (!conceptId) return
+
         const token = await getToken()
         if (!token) {
           setError('Authentication required')

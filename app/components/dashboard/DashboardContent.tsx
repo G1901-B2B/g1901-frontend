@@ -6,13 +6,41 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { type Project } from '../../lib/api'
 import { deleteProject, listUserProjectsClient } from '../../lib/api-client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Plus, 
+  LayoutGrid, 
+  List as ListIcon, 
+  MoreVertical, 
+  Trash2, 
+  Loader2, 
+  AlertCircle,
+  Clock,
+  Calendar
+} from 'lucide-react'
 
-// Dynamically import CreateProjectModal to reduce initial bundle size
 const CreateProjectModal = dynamic(
   () => import('../projects/CreateProjectModal'),
   { 
-    ssr: false, // Modal only needed on client side
-    loading: () => null // No loading state needed for modal
+    ssr: false,
+    loading: () => null
   }
 )
 
@@ -28,15 +56,12 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
   const { getToken } = useAuth()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>(initialProjects)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [viewType, setViewType] = useState<ViewType>('grid')
   const [sortOption, setSortOption] = useState<SortOption>('most-recent')
-  const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Refresh projects from API (client-side)
   const refreshProjects = async () => {
     try {
       const token = await getToken()
@@ -51,14 +76,11 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
     }
   }
 
-  // Refresh projects when modal closes (in case a new project was created)
   const handleModalClose = () => {
     setIsModalOpen(false)
-    // Refresh projects client-side without full page reload
     refreshProjects()
   }
 
-  // Format date for display
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', { 
@@ -68,12 +90,10 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
     })
   }
 
-  // Filter projects by status
   const readyProjects = projects.filter(p => p.status === 'ready')
   const processingProjects = projects.filter(p => p.status === 'processing' || p.status === 'created')
   const failedProjects = projects.filter(p => p.status === 'failed')
   
-  // Sort ready projects based on selected option
   const sortedProjects = [...readyProjects].sort((a, b) => {
     switch (sortOption) {
       case 'most-recent':
@@ -89,423 +109,332 @@ export default function DashboardContent({ projects: initialProjects }: Dashboar
     }
   })
 
-  // Auto-refresh when there are processing projects
   useEffect(() => {
     if (processingProjects.length > 0) {
-      // Poll every 5 seconds to check if projects are ready
-      refreshIntervalRef.current = setInterval(async () => {
-        try {
-          const token = await getToken()
-          if (token) {
-            const response = await listUserProjectsClient(token)
-            if (response.success && response.projects) {
-              setProjects(response.projects)
-            }
-          }
-        } catch (error) {
-          console.error('Failed to refresh projects:', error)
-        }
-      }, 5000)
-    } else {
-      // Clear interval when no processing projects
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current)
-        refreshIntervalRef.current = null
-      }
+      refreshIntervalRef.current = setInterval(refreshProjects, 5000)
+    } else if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current)
+      refreshIntervalRef.current = null
     }
-
-    // Cleanup on unmount
     return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current)
-      }
+      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current)
     }
   }, [processingProjects.length, getToken])
 
-  // Handle menu toggle
-  const handleMenuToggle = (e: React.MouseEvent, projectId: string) => {
-    e.stopPropagation()
-    setOpenMenuId(openMenuId === projectId ? null : projectId)
-  }
-
-  // Handle delete confirmation
-  const handleDeleteClick = (e: React.MouseEvent, projectId: string) => {
-    e.stopPropagation()
-    setOpenMenuId(null)
-    setDeleteConfirmId(projectId)
-  }
-
-  // Handle delete confirmation cancel
-  const handleDeleteCancel = () => {
-    setDeleteConfirmId(null)
-  }
-
-  // Handle delete confirmation
   const handleDeleteConfirm = async () => {
     if (!deleteConfirmId) return
-    
     setIsDeleting(true)
     try {
       const token = await getToken()
       await deleteProject(deleteConfirmId, token)
-      
-      // Optimistic update - remove from local state
       setProjects(projects.filter(p => p.project_id !== deleteConfirmId))
       setDeleteConfirmId(null)
-      
-      // Refresh to sync with server
       router.refresh()
     } catch (error) {
       console.error('Failed to delete project:', error)
-      alert('Failed to delete project. Please try again.')
     } finally {
       setIsDeleting(false)
     }
   }
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openMenuId) {
-        const menuElement = menuRefs.current[openMenuId]
-        if (menuElement && !menuElement.contains(event.target as Node)) {
-          setOpenMenuId(null)
-        }
-      }
+  const getMotivationalMessage = (level: string) => {
+    switch (level?.toLowerCase()) {
+      case 'beginner':
+        return "Big things have small beginnings."
+      case 'intermediate':
+        return "Complexity is your playground."
+      case 'expert':
+        return "Architecting the future."
+      default:
+        return "Build your vision."
     }
+  }
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ready':
+        return <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">Ready</Badge>
+      case 'processing':
+      case 'created':
+        return <Badge className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20 animate-pulse">Processing</Badge>
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
     }
-  }, [openMenuId])
+  }
 
   return (
-    <>
-      <div className="min-h-screen bg-[#2f3338]">
-        <div className="max-w-7xl mx-auto px-8 py-8">
-          {/* Top Navigation Bar */}
-          <div className="flex items-center justify-between mb-10">
-            {/* Left: View Controls */}
-            <div className="flex items-center gap-6">
-              {/* View Toggle */}
-              <div className="flex items-center gap-1 bg-[#3f4449] rounded-lg p-1">
-                <button 
-                  onClick={() => setViewType('grid')}
-                  className={`p-2 transition-all duration-200 ${
-                    viewType === 'grid' 
-                      ? 'text-white bg-[#5f6368]' 
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="Grid view"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
-                <button 
-                  onClick={() => setViewType('list')}
-                  className={`p-2 transition-all duration-200 ${
-                    viewType === 'list' 
-                      ? 'text-white bg-[#5f6368]' 
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="List view"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Right: Sort and Create */}
-            <div className="flex items-center gap-3">
-              <select 
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
-                className="px-4 py-2 text-[13px] font-medium text-zinc-300 bg-[#3f4449] border-none rounded-lg hover:bg-[#4f5459] transition-all duration-200 cursor-pointer"
-              >
-                <option value="most-recent">Most recent</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="oldest-first">Oldest first</option>
-              </select>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="px-5 py-2.5 text-[13px] font-medium text-[#2f3338] bg-white rounded-full hover:bg-zinc-100 transition-all duration-200 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create new
-              </button>
-            </div>
+    <div className="min-h-screen bg-[#121212] text-zinc-200">
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        {/* Dashboard Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">My Projects</h1>
+            <p className="text-zinc-500">Manage and track your AI-powered learning roadmaps.</p>
           </div>
+          
+          <div className="flex items-center gap-4">
+            <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)} className="hidden sm:block">
+              <TabsList className="bg-zinc-900 border border-zinc-800">
+                <TabsTrigger value="grid" className="data-[state=active]:bg-zinc-800">
+                  <LayoutGrid className="w-4 h-4" />
+                </TabsTrigger>
+                <TabsTrigger value="list" className="data-[state=active]:bg-zinc-800">
+                  <ListIcon className="w-4 h-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-          {/* GitGuides Section */}
-          <div className="mb-12">
-            <h2 className="text-[20px] font-medium text-zinc-200 mb-6">
-              Your GitGuides
-            </h2>
+            <select 
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as SortOption)}
+              className="h-10 px-4 text-sm font-medium bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+            >
+              <option value="most-recent">Most recent</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="oldest-first">Oldest first</option>
+            </select>
 
-            {/* Processing Projects Loading Message */}
-            {processingProjects.length > 0 && (
-              <div className="mb-6 bg-[#3f4449] border border-zinc-600 rounded-lg p-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0">
-                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium mb-1">
-                      Hang in there for a moment, your GitGuide{processingProjects.length > 1 ? 's are' : ' is'} being generated
-                    </p>
-                    <p className="text-zinc-400 text-sm">
-                      {processingProjects.length} project{processingProjects.length > 1 ? 's' : ''} currently processing...
-                    </p>
-                  </div>
+            <Button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white rounded-full px-5 h-10 shadow-lg shadow-blue-900/20 transition-all flex items-center justify-start gap-2.5 leading-none"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="relative top-[0.5px]">New Guide</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Processing State Alert */}
+        {processingProjects.length > 0 && (
+          <Card className="mb-8 bg-blue-500/5 border-blue-500/20 border shadow-none">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                <div>
+                  <p className="text-blue-100 font-medium">Generating your GitGuides...</p>
+                  <p className="text-blue-400/70 text-sm">
+                    {processingProjects.length} project{processingProjects.length > 1 ? 's' : ''} currently being analyzed.
+                  </p>
                 </div>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Failed Projects Section */}
-            {failedProjects.length > 0 && (
-              <div className="mb-6 space-y-3">
-                {failedProjects.map((project) => (
-                  <div key={project.project_id} className="bg-red-950/30 border border-red-500/30 rounded-lg p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
-                          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                        </div>
+        {/* Failed Projects */}
+        {failedProjects.length > 0 && (
+          <div className="mb-10 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Failed to Generate
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {failedProjects.map((project) => (
+                <Card key={project.project_id} className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-red-500" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-white font-medium">{project.project_name}</h4>
-                          <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                            Failed
-                          </span>
-                        </div>
-                        <p className="text-zinc-400 text-sm mb-2 truncate">
-                          {project.github_url}
-                        </p>
-                        {project.error_message && (
-                          <p className="text-red-400/80 text-xs bg-red-500/10 rounded px-2 py-1 mb-3">
-                            Error: {project.error_message}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleDeleteClick({ stopPropagation: () => {} } as React.MouseEvent, project.project_id)}
-                            className="px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-colors"
-                          >
-                            Delete Project
-                          </button>
-                        </div>
+                      <div>
+                        <CardTitle className="text-white text-lg">{project.project_name}</CardTitle>
+                        <CardDescription className="text-zinc-500">{project.github_url}</CardDescription>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-zinc-500 hover:text-red-400 hover:bg-red-400/10"
+                      onClick={() => setDeleteConfirmId(project.project_id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </CardHeader>
+                  {project.error_message && (
+                    <CardContent>
+                      <p className="text-red-400/80 text-xs bg-red-400/5 border border-red-400/10 rounded-md p-3">
+                        {project.error_message}
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
-            {viewType === 'grid' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {/* Create New Card - Always show first */}
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="aspect-[4/3] border-2 border-dashed border-zinc-600 rounded-xl hover:border-zinc-500 hover:bg-[#3f4449] transition-all duration-200 flex items-center justify-center group"
+        {/* Project Grid/List */}
+        <div className="space-y-6">
+          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Your Learning Paths</h2>
+          
+          {viewType === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {/* Empty state / Create card */}
+              <Card 
+                className="group border-2 border-dashed border-zinc-800 hover:border-zinc-700 bg-transparent hover:bg-zinc-900/50 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[240px]"
+                onClick={() => setIsModalOpen(true)}
+              >
+                <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform border border-zinc-800">
+                  <Plus className="w-6 h-6 text-zinc-500 group-hover:text-white" />
+                </div>
+                <p className="text-sm font-medium text-zinc-500 group-hover:text-zinc-300">Create new guide</p>
+              </Card>
+
+              {sortedProjects.map((project) => (
+                <Card 
+                  key={project.project_id} 
+                  className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all group cursor-pointer relative"
+                  onClick={() => router.push(`/project/${project.project_id}`)}
                 >
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto mb-3 bg-[#4f5459] rounded-full flex items-center justify-center group-hover:bg-[#5f6368] transition-all duration-200">
-                      <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <p className="text-[13px] font-medium text-zinc-400 group-hover:text-zinc-300">
-                      {sortedProjects.length === 0 && processingProjects.length === 0 ? 'Create your first GitGuide' : 'Create new GitGuide'}
-                    </p>
+                  <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                        <DropdownMenuItem 
+                          className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
+                          onClick={() => setDeleteConfirmId(project.project_id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Project
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </button>
 
-                {/* Project Cards */}
-                {sortedProjects.map((project) => (
-                  <div
-                    key={project.project_id}
-                    className="aspect-[4/3] bg-gradient-to-br from-zinc-700 to-zinc-800 rounded-xl p-6 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 cursor-pointer relative group"
-                    onClick={() => router.push(`/project/${project.project_id}`)}
-                  >
-                    {/* Project Icon/Avatar */}
-                    <div className="w-10 h-10 bg-white rounded-full mb-4 flex items-center justify-center text-[14px] font-semibold text-zinc-900">
+                  <CardHeader className="pb-4">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold mb-4 shadow-lg shadow-blue-900/20">
                       {project.project_name.charAt(0).toUpperCase()}
                     </div>
-
-                    {/* Project Info */}
-                    <h3 className="text-[16px] font-medium text-white mb-2 line-clamp-2 group-hover:text-zinc-100 transition-colors">
+                    <CardTitle className="text-white group-hover:text-blue-400 transition-colors line-clamp-1">
+                      {project.project_name}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-1">{project.github_url}</CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="pb-6">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{formatDate(project.created_at)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{project.target_days} day roadmap</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                  
+                      <CardFooter className="pt-0 flex justify-between items-center border-t border-zinc-800/50 mt-2 py-4">
+                        {getStatusBadge(project.status)}
+                        <span className="text-[10px] text-zinc-500 font-medium italic opacity-70">
+                          {getMotivationalMessage(project.skill_level)}
+                        </span>
+                      </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sortedProjects.map((project) => (
+                <div 
+                  key={project.project_id}
+                  className="group flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-zinc-700 transition-all cursor-pointer"
+                  onClick={() => router.push(`/project/${project.project_id}`)}
+                >
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
+                    {project.project_name.charAt(0).toUpperCase()}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-medium group-hover:text-blue-400 transition-colors truncate">
                       {project.project_name}
                     </h3>
-                    <p className="text-[12px] text-zinc-400">
-                      {formatDate(project.created_at)} · {project.target_days} days
-                    </p>
-
-                    {/* Status Badge */}
-                    <div className="absolute bottom-4 left-6">
-                      <span className="inline-block px-2 py-1 text-[10px] font-medium rounded-full bg-zinc-600/50 text-zinc-300 capitalize">
-                        {project.status}
-                      </span>
-                    </div>
-
-                    {/* Options Menu */}
-                    <div className="absolute top-4 right-4" ref={(el) => { menuRefs.current[project.project_id] = el }}>
-                      <button 
-                        onClick={(e) => handleMenuToggle(e, project.project_id)}
-                        className="w-8 h-8 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-                        </svg>
-                      </button>
-                      
-                      {/* Dropdown Menu */}
-                      {openMenuId === project.project_id && (
-                        <div className="absolute right-0 top-10 mt-1 w-48 bg-[#3f4449] rounded-lg shadow-lg border border-zinc-600 z-50">
-                          <button
-                            onClick={(e) => handleDeleteClick(e, project.project_id)}
-                            className="w-full px-4 py-2 text-left text-[13px] text-red-400 hover:bg-zinc-700 rounded-lg transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <p className="text-zinc-500 text-xs truncate">{project.github_url}</p>
                   </div>
-                ))}
 
-                {/* Empty placeholder cards if less than 4 total items (including create card) */}
-                {sortedProjects.length < 3 && Array.from({ length: 3 - sortedProjects.length }).map((_, i) => (
-                  <div key={`placeholder-${i}`} className="aspect-[4/3] bg-[#3f4449] rounded-xl opacity-30" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Create New Card - List View */}
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full border-2 border-dashed border-zinc-600 rounded-xl hover:border-zinc-500 hover:bg-[#3f4449] transition-all duration-200 flex items-center justify-center group p-6"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#4f5459] rounded-full flex items-center justify-center group-hover:bg-[#5f6368] transition-all duration-200">
-                      <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <p className="text-[13px] font-medium text-zinc-400 group-hover:text-zinc-300">
-                      {sortedProjects.length === 0 && processingProjects.length === 0 ? 'Create your first GitGuide' : 'Create new GitGuide'}
-                    </p>
+                  <div className="hidden md:flex flex-col items-end gap-1 text-[11px] text-zinc-500 px-4 border-x border-zinc-800 h-8 justify-center">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {project.target_days} days
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> {formatDate(project.created_at)}
+                    </span>
                   </div>
-                </button>
 
-                {/* Project List Items */}
-                {sortedProjects.map((project) => (
-                  <div
-                    key={project.project_id}
-                    className="bg-gradient-to-r from-zinc-700 to-zinc-800 rounded-xl p-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-200 cursor-pointer relative group"
-                    onClick={() => router.push(`/project/${project.project_id}`)}
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Project Icon/Avatar */}
-                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-[16px] font-semibold text-zinc-900 flex-shrink-0">
-                        {project.project_name.charAt(0).toUpperCase()}
-                      </div>
-
-                      {/* Project Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-[16px] font-medium text-white group-hover:text-zinc-100 transition-colors">
-                            {project.project_name}
-                          </h3>
-                          <span className="inline-block px-2 py-1 text-[10px] font-medium rounded-full bg-zinc-600/50 text-zinc-300 capitalize">
-                            {project.status}
-                          </span>
-                        </div>
-                        <p className="text-[12px] text-zinc-400">
-                          {formatDate(project.created_at)} · {project.target_days} days
-                        </p>
-                      </div>
-
-                      {/* Options Menu */}
-                      <div className="flex-shrink-0 relative" ref={(el) => { menuRefs.current[project.project_id] = el }}>
-                        <button 
-                          onClick={(e) => handleMenuToggle(e, project.project_id)}
-                          className="w-8 h-8 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      <div className="flex items-center gap-4 ml-2">
+                        <span className="hidden xl:inline text-[10px] text-zinc-600 italic mr-2 opacity-60">
+                          {getMotivationalMessage(project.skill_level)}
+                        </span>
+                        {getStatusBadge(project.status)}
+                        <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                        <DropdownMenuItem 
+                          className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(project.project_id);
+                          }}
                         >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-                          </svg>
-                        </button>
-                        
-                        {/* Dropdown Menu */}
-                        {openMenuId === project.project_id && (
-                          <div className="absolute right-0 top-10 mt-1 w-48 bg-[#3f4449] rounded-lg shadow-lg border border-zinc-600 z-50">
-                            <button
-                              onClick={(e) => handleDeleteClick(e, project.project_id)}
-                              className="w-full px-4 py-2 text-left text-[13px] text-red-400 hover:bg-zinc-700 rounded-lg transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal */}
       <CreateProjectModal 
         isOpen={isModalOpen} 
         onClose={handleModalClose}
         onProjectCreated={refreshProjects}
       />
 
-      {/* Delete Confirmation Dialog */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#3f4449] rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-600">
-            <h3 className="text-lg font-semibold text-white mb-2">Delete Project</h3>
-            <p className="text-zinc-300 mb-6">
-              Are you sure you want to delete &quot;{projects.find(p => p.project_id === deleteConfirmId)?.project_name}&quot;?
-              This will permanently delete the project, all chunks, and embeddings. This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleDeleteCancel}
-                disabled={isDeleting}
-                className="px-4 py-2 text-[13px] font-medium text-zinc-300 bg-zinc-600 rounded-lg hover:bg-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete Project</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Are you sure you want to delete this project? This will permanently remove all learning data, code chunks, and vector embeddings. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3 mt-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setDeleteConfirmId(null)}
+              disabled={isDeleting}
+              className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-500"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              {isDeleting ? 'Deleting...' : 'Delete Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
-

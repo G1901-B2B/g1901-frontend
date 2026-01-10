@@ -2,7 +2,22 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { type ConceptDetails } from '../../lib/api-roadmap'
+import { 
+  CheckCircle2, 
+  Clock, 
+  BookOpen, 
+  ListTodo, 
+  PlayCircle,
+  ChevronRight,
+  Book,
+  ClipboardList,
+  AlertCircle,
+  Zap
+} from 'lucide-react'
 
 interface ConceptDetailPanelProps {
   conceptDetails: ConceptDetails | null
@@ -28,19 +43,18 @@ export default function ConceptDetailPanel({
   isLastConcept
 }: ConceptDetailPanelProps) {
   const router = useRouter()
-  const [isStarting, setIsStarting] = useState(false)
-  const [isCompleting, setIsCompleting] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
 
   if (loading || !conceptDetails) {
     return (
-      <div className="w-full p-4 bg-[#2f3338] rounded-lg border border-white/10">
-        <div className="animate-pulse space-y-3">
-          <div className="h-5 bg-white/10 rounded w-3/4"></div>
-          <div className="h-4 bg-white/10 rounded w-1/2"></div>
-          <div className="space-y-2 mt-4">
-            <div className="h-12 bg-white/10 rounded"></div>
-            <div className="h-12 bg-white/10 rounded"></div>
+      <div className="w-full p-4 bg-zinc-900/50 rounded-xl border border-zinc-800 animate-pulse">
+        <div className="space-y-4">
+          <div className="h-4 bg-zinc-800 rounded w-1/4" />
+          <div className="h-6 bg-zinc-800 rounded w-3/4" />
+          <div className="h-16 bg-zinc-800 rounded w-full" />
+          <div className="flex gap-2">
+            <div className="h-8 bg-zinc-800 rounded w-24" />
+            <div className="h-8 bg-zinc-800 rounded w-24" />
           </div>
         </div>
       </div>
@@ -50,25 +64,16 @@ export default function ConceptDetailPanel({
   const { concept, tasks } = conceptDetails
   const progress = conceptProgress[concept.concept_id]
   const isContentRead = progress?.content_read || false
-  const allTasksDone = tasks.length === 0 || tasks.every(t => taskProgress[t.task_id]?.progress_status === 'done')
-
-  const handleStart = async () => {
-    setIsStarting(true)
-    try {
-      await onStart()
-    } finally {
-      setIsStarting(false)
-    }
-  }
-
-  const handleComplete = async () => {
-    setIsCompleting(true)
-    try {
-      await onComplete()
-    } finally {
-      setIsCompleting(false)
-    }
-  }
+  const completedTasksCount = tasks.filter(t => taskProgress[t.task_id]?.progress_status === 'done').length
+  const totalTasks = tasks.length
+  
+  // Calculate Progress Percentage
+  const totalItems = (concept.content ? 1 : 0) + totalTasks
+  const completedItems = (isContentRead ? 1 : 0) + completedTasksCount
+  const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+  
+  const allTasksDone = totalTasks === 0 || completedTasksCount === totalTasks
+  const isReadyToComplete = isContentRead && allTasksDone
 
   const handleContentClick = () => {
     router.push(`/docs/${concept.concept_id}?project=${projectId}`)
@@ -82,185 +87,188 @@ export default function ConceptDetailPanel({
     const status = taskProgress[taskId]?.progress_status
     if (status === 'done') {
       return (
-        <div className="w-5 h-5 bg-green-500/20 rounded-full flex items-center justify-center">
-          <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+        <div className="w-5 h-5 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
+          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
         </div>
       )
     }
     if (status === 'doing') {
       return (
-        <div className="w-5 h-5 bg-orange-500/20 rounded-full flex items-center justify-center">
-          <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+        <div className="w-5 h-5 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/20">
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
         </div>
       )
     }
     return (
-      <div className="w-5 h-5 bg-zinc-700 rounded-full flex items-center justify-center">
-        <div className="w-2 h-2 bg-zinc-500 rounded-full"></div>
+      <div className="w-5 h-5 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700">
+        <div className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
       </div>
     )
   }
 
   const getDifficultyBadge = (difficulty: string) => {
     const colors = {
-      easy: 'bg-green-500/20 text-green-400 border-green-500/30',
-      medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      hard: 'bg-red-500/20 text-red-400 border-red-500/30',
+      easy: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+      medium: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      hard: 'bg-red-500/10 text-red-500 border-red-500/20',
     }
     return colors[difficulty as keyof typeof colors] || colors.medium
   }
 
   return (
-    <div className="w-full p-4 bg-[#2f3338] rounded-lg border border-orange-500/30">
-      {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <span className="text-xs font-medium text-zinc-400 mb-1 block">
-              Concept {concept.order_index}
-            </span>
-            <h3 className="text-sm font-semibold text-white mb-1">{concept.title}</h3>
-            {concept.description && (
-              <p className="text-xs text-zinc-400">{concept.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {concept.estimated_minutes} min
-          </div>
-        </div>
-        
-        {/* Action Buttons */}
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={handleStart}
-            disabled={isStarting}
-            className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
-          >
-            {isStarting ? 'Starting...' : 'Start'}
-          </button>
-          <button
-            onClick={handleComplete}
-            disabled={isCompleting || (!isContentRead && concept.content)}
-            className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
-            title={!isContentRead && concept.content ? 'Read the content first' : ''}
-          >
-            {isCompleting ? 'Completing...' : 'Complete'}
-          </button>
-        </div>
-      </div>
-
-      {/* Content and Tasks Boxes */}
-      <div className="space-y-3">
-        {/* Content Box - Clickable to open docs page */}
-        {concept.content && (
-          <button
-            onClick={handleContentClick}
-            className="w-full px-4 py-3 flex items-center justify-between bg-[#3f4449] hover:bg-[#454a50] border border-white/10 rounded-lg transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isContentRead ? 'bg-green-500/20' : 'bg-blue-500/20'}`}>
-                <svg className={`w-5 h-5 ${isContentRead ? 'text-green-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h4 className="text-sm font-medium text-white group-hover:text-orange-300 transition-colors">
-                  Learning Content
-                </h4>
-                <p className="text-xs text-zinc-400">
-                  {isContentRead ? 'Completed • Click to review' : 'Click to read documentation'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {isContentRead && (
-                <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded border border-green-500/30">
-                  ✓ Read
-                </span>
-              )}
-              <svg className="w-5 h-5 text-zinc-400 group-hover:text-orange-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </button>
-        )}
-
-        {/* Tasks Box */}
-        {tasks.length > 0 && (
-          <div className="border border-white/10 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowTasks(!showTasks)}
-              className="w-full px-4 py-3 flex items-center justify-between bg-[#3f4449] hover:bg-[#454a50] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${allTasksDone ? 'bg-green-500/20' : 'bg-purple-500/20'}`}>
-                  <svg className={`w-5 h-5 ${allTasksDone ? 'text-green-400' : 'text-purple-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
+    <div className="w-full bg-[#18181b] rounded-xl border border-orange-500/30 shadow-2xl shadow-orange-500/5 overflow-hidden">
+      <ScrollArea orientation="horizontal" className="w-full">
+        <div className="p-5 min-w-[380px]">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-zinc-950 border-zinc-800 text-zinc-500 h-5 px-1.5">
+                    Concept {concept.order_index}
+                  </Badge>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
+                    <Clock className="w-3 h-3" />
+                    {concept.estimated_minutes}m
+                  </div>
                 </div>
-                <div className="text-left">
-                  <h4 className="text-sm font-medium text-white">Tasks</h4>
-                  <p className="text-xs text-zinc-400">
-                    {tasks.filter(t => taskProgress[t.task_id]?.progress_status === 'done').length} of {tasks.length} completed
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {allTasksDone && (
-                  <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded border border-green-500/30">
-                    ✓ Done
-                  </span>
+                <h3 className="text-sm font-bold text-white mb-2 leading-tight">{concept.title}</h3>
+                {concept.description && (
+                  <p className="text-[11px] text-zinc-400 leading-relaxed font-medium mb-4">{concept.description}</p>
                 )}
-                <svg
-                  className={`w-5 h-5 text-zinc-400 transition-transform ${showTasks ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
               </div>
-            </button>
+            </div>
             
-            {showTasks && (
-              <div className="bg-[#2a2d31] divide-y divide-white/5">
-                {tasks.map((task) => (
-                  <button
-                    key={task.task_id}
-                    onClick={() => handleTaskClick(task.task_id)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
-                  >
-                    {getTaskStatusIcon(task.task_id)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h5 className="text-sm font-medium text-white truncate">{task.title}</h5>
-                        <span className={`text-xs px-1.5 py-0.5 rounded border ${getDifficultyBadge(task.difficulty)}`}>
-                          {task.difficulty}
-                        </span>
-                      </div>
-                      <p className="text-xs text-zinc-400 truncate">{task.description}</p>
+            {/* Progress Section */}
+            <div className="pt-4 border-t border-zinc-800/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md ${isReadyToComplete ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
+                    {isReadyToComplete ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5 text-blue-400" />
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    {isReadyToComplete ? 'Ready to Finish' : 'Concept Progress'}
+                  </span>
+                </div>
+                <span className={`text-[11px] font-black tracking-tight ${isReadyToComplete ? 'text-emerald-500 animate-pulse' : 'text-zinc-200'}`}>
+                  {progressPercentage}%
+                </span>
+              </div>
+              <Progress 
+                value={progressPercentage} 
+                className="h-1.5 bg-zinc-800" 
+              />
+            </div>
+          </div>
+
+          {/* Content and Tasks Boxes */}
+          <div className="space-y-3">
+            {/* Content Box */}
+            {concept.content && (
+              <button
+                onClick={handleContentClick}
+                className="w-full p-3.5 flex items-center justify-between bg-zinc-900/50 hover:bg-zinc-800/80 border border-zinc-800 rounded-xl transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors ${
+                    isContentRead ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-blue-500/10 border-blue-500/20'
+                  }`}>
+                    <Book className={`w-5 h-5 ${isContentRead ? 'text-emerald-500' : 'text-blue-500'}`} />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="text-[13px] font-bold text-white group-hover:text-blue-400 transition-colors">
+                      Learning Content
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 font-medium">
+                      {isContentRead ? 'Documentation Read' : 'Click to start reading'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isContentRead ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
+                  )}
+                </div>
+              </button>
+            )}
+
+            {/* Tasks Box */}
+            {tasks.length > 0 && (
+              <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
+                <button
+                  onClick={() => setShowTasks(!showTasks)}
+                  className="w-full p-3.5 flex items-center justify-between hover:bg-zinc-800/50 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors ${
+                      allTasksDone ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-purple-500/10 border-purple-500/20'
+                    }`}>
+                      <ClipboardList className={`w-5 h-5 ${allTasksDone ? 'text-emerald-500' : 'text-purple-400'}`} />
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-zinc-500">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {task.estimated_minutes}m
+                    <div className="text-left">
+                      <h4 className="text-[13px] font-bold text-white group-hover:text-purple-400 transition-colors">Tasks</h4>
+                      <p className="text-[10px] text-zinc-500 font-medium">
+                        {tasks.filter(t => taskProgress[t.task_id]?.progress_status === 'done').length} of {tasks.length} completed
+                      </p>
                     </div>
-                    <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ChevronRight className={`w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-all ${showTasks ? 'rotate-90' : ''}`} />
+                  </div>
+                </button>
+                
+                {showTasks && (
+                  <div className="bg-zinc-950/30 border-t border-zinc-800/50 divide-y divide-zinc-800/30">
+                    <ScrollArea className="max-h-[300px]">
+                      {tasks.map((task) => (
+                        <button
+                          key={task.task_id}
+                          onClick={() => handleTaskClick(task.task_id)}
+                          className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-zinc-800/50 transition-all text-left group"
+                        >
+                          {getTaskStatusIcon(task.task_id)}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="text-[12px] font-bold text-white truncate group-hover:text-blue-400 transition-colors">{task.title}</h5>
+                              <Badge variant="outline" className={`text-[9px] font-bold uppercase tracking-widest h-4 px-1 ${getDifficultyBadge(task.difficulty)}`}>
+                                {task.difficulty}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 font-medium whitespace-nowrap">
+                              {task.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-bold whitespace-nowrap flex-shrink-0">
+                            <Clock className="w-3 h-3" />
+                            {task.estimated_minutes}m
+                          </div>
+                        </button>
+                      ))}
+                    </ScrollArea>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+
+          {/* Helper Footer */}
+          {!allTasksDone && (
+            <div className="mt-4 flex items-center gap-2 p-2.5 bg-zinc-950/50 rounded-lg border border-zinc-800/50">
+              <AlertCircle className="w-3.5 h-3.5 text-zinc-600" />
+              <p className="text-[10px] text-zinc-500 font-medium">
+                Complete all tasks to finish this concept.
+              </p>
+            </div>
+          )}
+        </div>
+        <ScrollBar orientation="horizontal" className="bg-zinc-800/20" />
+      </ScrollArea>
     </div>
   )
 }

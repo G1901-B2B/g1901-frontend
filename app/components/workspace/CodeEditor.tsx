@@ -3,62 +3,82 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { type Task, completeTask } from '../../lib/api-roadmap'
-import { getOrCreateWorkspace, readFile, writeFile, type WorkspaceInfo } from '../../lib/api-workspace'
+import { getOrCreateWorkspace, readFile, writeFile } from '../../lib/api-workspace'
+import { useWorkspaceStore } from '../../hooks/useWorkspaceStore'
 import MonacoEditor from './MonacoEditor'
 import FileExplorer from './FileExplorer'
 import TerminalTabs from './TerminalTabs'
+import { 
+  ResizableHandle, 
+  ResizablePanel, 
+  ResizablePanelGroup 
+} from "@/components/ui/resizable"
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
+import { 
+  Save, 
+  Play, 
+  CheckCircle2, 
+  X, 
+  FileCode, 
+  Terminal as TerminalIcon,
+  AlertCircle,
+  ChevronRight,
+  Loader2,
+  Clock
+} from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface CodeEditorProps {
   task: Task
   projectId: string
   onComplete: () => void
+  initialCompleted?: boolean
 }
 
-interface OpenFile {
-  path: string
-  content: string
-  isDirty: boolean
-  originalContent: string
-}
-
-export default function CodeEditor({ task, projectId, onComplete, initialCompleted }: CodeEditorProps & { initialCompleted?: boolean }) {
+export default function CodeEditor({ task, projectId, onComplete, initialCompleted }: CodeEditorProps) {
   const { getToken } = useAuth()
   
-  // Workspace state
-  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null)
+  // Centralized State
+  const {
+    openFiles,
+    activeFilePath,
+    workspaceId,
+    setWorkspaceId,
+    openFile,
+    closeFile,
+    updateFileContent,
+    markFileSaved,
+    setActiveFilePath
+  } = useWorkspaceStore()
+  
+  // Local UI State
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true)
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
-  
-  // File state
-  const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
-  const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [isLoadingFile, setIsLoadingFile] = useState(false)
-  
-  // Editor state
   const [output, setOutput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isCompleted, setIsCompleted] = useState(initialCompleted || false)
   const [isVerifying, setIsVerifying] = useState(false)
 
-  // Get active file
   const activeFile = openFiles.find(f => f.path === activeFilePath)
 
   // Initialize workspace
   useEffect(() => {
     let mounted = true
-    
     async function initWorkspace() {
       try {
         setIsLoadingWorkspace(true)
         setWorkspaceError(null)
-        
         const token = await getToken()
         if (!token || !mounted) return
-        
         const ws = await getOrCreateWorkspace(projectId, token)
         if (mounted) {
-          setWorkspace(ws)
+          setWorkspaceId(ws.workspace_id)
         }
       } catch (err) {
         console.error('Failed to init workspace:', err)
@@ -66,433 +86,291 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
           setWorkspaceError(err instanceof Error ? err.message : 'Failed to initialize workspace')
         }
       } finally {
-        if (mounted) {
-          setIsLoadingWorkspace(false)
-        }
+        if (mounted) setIsLoadingWorkspace(false)
       }
     }
-    
     initWorkspace()
     return () => { mounted = false }
-  }, [projectId, getToken])
+  }, [projectId, getToken, setWorkspaceId])
 
-  // Handle initial completed state
-  useEffect(() => {
-    if (initialCompleted) {
-      setIsCompleted(true)
-      onComplete()
-    }
-  }, [initialCompleted, onComplete])
-
-  // Open a file
+  // Handle file selection from Explorer
   const handleFileSelect = useCallback(async (path: string) => {
-    if (!workspace) return
-    
-    // Check if already open
+    if (!workspaceId) return
     const existing = openFiles.find(f => f.path === path)
     if (existing) {
       setActiveFilePath(path)
       return
     }
-    
-    // Load file content
     try {
       setIsLoadingFile(true)
       const token = await getToken()
       if (!token) return
-      
-      const content = await readFile(workspace.workspace_id, path, token)
-      
-      // Use functional update to prevent duplicates from race conditions
-      setOpenFiles(prev => {
-        // Check again in case of race condition
-        if (prev.find(f => f.path === path)) {
-          return prev
-        }
-        return [...prev, {
-          path,
-          content,
-          originalContent: content,
-          isDirty: false,
-        }]
-      })
-      setActiveFilePath(path)
+      const content = await readFile(workspaceId, path, token)
+      openFile(path, content)
     } catch (err) {
       console.error('Failed to open file:', err)
       setOutput(`Failed to open file: ${path}`)
     } finally {
       setIsLoadingFile(false)
     }
-  }, [workspace, openFiles, getToken])
+  }, [workspaceId, openFiles, getToken, openFile, setActiveFilePath])
 
-  // Update file content
-  const handleContentChange = useCallback((newContent: string) => {
-    if (!activeFilePath) return
-    
-    setOpenFiles(prev => prev.map(f => {
-      if (f.path === activeFilePath) {
-        return {
-          ...f,
-          content: newContent,
-          isDirty: newContent !== f.originalContent,
-        }
-      }
-      return f
-    }))
-  }, [activeFilePath])
-
-  // Save current file
   const handleSave = useCallback(async () => {
-    if (!workspace || !activeFile || !activeFile.isDirty) return
-    
+    if (!workspaceId || !activeFile || !activeFile.isDirty) return
     try {
       setIsSaving(true)
       const token = await getToken()
       if (!token) return
-      
-      await writeFile(workspace.workspace_id, activeFile.path, activeFile.content, token)
-      
-      setOpenFiles(prev => prev.map(f => {
-        if (f.path === activeFile.path) {
-          return {
-            ...f,
-            originalContent: activeFile.content,
-            isDirty: false,
-          }
-        }
-        return f
-      }))
-      
+      await writeFile(workspaceId, activeFile.path, activeFile.content, token)
+      markFileSaved(activeFile.path)
       setOutput('✓ File saved successfully')
     } catch (err) {
       console.error('Failed to save file:', err)
-      setOutput(`Failed to save file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setOutput(`Error saving: ${err instanceof Error ? err.message : 'Unknown'}`)
     } finally {
       setIsSaving(false)
     }
-  }, [workspace, activeFile, getToken])
+  }, [workspaceId, activeFile, getToken, markFileSaved])
 
-  // Close a file tab
-  const handleCloseTab = useCallback((path: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    
-    const fileToClose = openFiles.find(f => f.path === path)
-    if (fileToClose?.isDirty) {
-      if (!confirm('You have unsaved changes. Close anyway?')) {
-        return
-      }
-    }
-    
-    setOpenFiles(prev => prev.filter(f => f.path !== path))
-    
-    // Switch to another tab if closing active
-    if (activeFilePath === path) {
-      const remaining = openFiles.filter(f => f.path !== path)
-      setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1].path : null)
-    }
-  }, [openFiles, activeFilePath])
-
-  // Verify task
   const handleVerifyTask = async () => {
-    // Check if there's any written code
     const hasCode = openFiles.some(f => f.content.trim().length > 10)
     if (!hasCode) {
       setOutput('Please write some code before verifying.')
       return
     }
-    
     setIsVerifying(true)
     try {
       const token = await getToken()
       if (!token) return
-      
       await completeTask(projectId, task.task_id, token)
       setIsCompleted(true)
       onComplete()
       setOutput('✓ Task verified successfully!')
     } catch (error) {
-      console.error('Failed to verify task:', error)
-      setOutput('Failed to verify task. Please try again.')
+      setOutput('Verification failed. Check your logic.')
     } finally {
       setIsVerifying(false)
     }
   }
 
-  // Run code (placeholder for now)
-  const handleRun = async () => {
-    setIsRunning(true)
-    setTimeout(() => {
-      setOutput('Code executed successfully!')
-      setIsRunning(false)
-    }, 1000)
-  }
-
-  // Get filename from path
-  const getFilename = (path: string) => path.split('/').pop() || path
-
-  // Loading state
   if (isLoadingWorkspace) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-zinc-600 border-t-blue-500 rounded-full animate-spin"></div>
-          <span className="text-sm text-zinc-400">Initializing workspace...</span>
+      <div className="flex items-center justify-center h-full bg-[#09090b]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+          <span className="text-zinc-400 font-medium">Spawning your container...</span>
         </div>
       </div>
     )
   }
 
-  // Error state
   if (workspaceError) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-        <div className="flex flex-col items-center gap-3 max-w-md text-center">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
-            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <span className="text-sm text-zinc-400">{workspaceError}</span>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="flex items-center justify-center h-full bg-[#09090b]">
+        <Card className="bg-zinc-900 border-zinc-800 max-w-md w-full">
+          <CardHeader className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+            </div>
+            <CardTitle className="text-white">Workspace Error</CardTitle>
+            <CardDescription className="text-zinc-400 mt-2">{workspaceError}</CardDescription>
+          </CardHeader>
+          <CardFooter className="justify-center pb-8">
+            <Button onClick={() => window.location.reload()} className="bg-zinc-800 hover:bg-zinc-700 text-white">
+              Retry Connection
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e]">
-      {/* Main Content Area */}
-      <div className="flex flex-1 min-h-0">
-        {/* Left Panel - File Explorer */}
-        <div className="w-56 bg-[#252526] border-r border-zinc-800 flex flex-col">
-          {workspace ? (
-            <FileExplorer
-              workspaceId={workspace.workspace_id}
-              onFileSelect={handleFileSelect}
-              selectedFile={activeFilePath || undefined}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
-              No workspace
-            </div>
-          )}
-        </div>
+    <div className="h-full bg-[#09090b] flex flex-col overflow-hidden">
+      <ResizablePanelGroup direction="horizontal">
+        {/* Sidebar: File Explorer */}
+        <ResizablePanel defaultSize={18} minSize={12} maxSize={30} className="border-r border-zinc-800 bg-[#09090b]">
+          <FileExplorer
+            workspaceId={workspaceId!}
+            onFileSelect={handleFileSelect}
+            selectedFile={activeFilePath || undefined}
+          />
+        </ResizablePanel>
 
-        {/* Center Panel - Code Editor */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* File Tabs */}
-          <div className="flex items-center bg-[#252526] border-b border-zinc-800 overflow-x-auto">
-            {openFiles.map((file) => (
-              <div
-                key={file.path}
-                onClick={() => setActiveFilePath(file.path)}
-                className={`flex items-center gap-2 px-3 py-2 cursor-pointer border-r border-zinc-800 min-w-0 ${
-                  activeFilePath === file.path
-                    ? 'bg-[#1e1e1e] text-zinc-200'
-                    : 'bg-[#2d2d2d] text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <span className="text-xs font-mono truncate">{getFilename(file.path)}</span>
-                {file.isDirty && <span className="w-2 h-2 rounded-full bg-amber-500"></span>}
-                <button
-                  onClick={(e) => handleCloseTab(file.path, e)}
-                  className="ml-1 text-zinc-600 hover:text-zinc-300 transition-colors"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-            
-            {openFiles.length === 0 && (
-              <div className="px-4 py-2 text-xs text-zinc-600">
-                Select a file to edit
-              </div>
-            )}
-          </div>
+        <ResizableHandle withHandle className="bg-zinc-800" />
 
-          {/* Editor Header */}
-          {activeFile && (
-            <div className="px-4 py-2 border-b border-zinc-800 bg-[#2d2d2d] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400 font-mono">{activeFile.path}</span>
-                {isLoadingFile && (
-                  <span className="w-3 h-3 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+        {/* Center: Editor & Terminal */}
+        <ResizablePanel defaultSize={55}>
+          <ResizablePanelGroup direction="vertical">
+            <ResizablePanel defaultSize={70} className="flex flex-col">
+              {/* Tab Bar */}
+              <div className="flex items-center bg-[#0c0c0e] border-b border-zinc-800 overflow-x-auto no-scrollbar h-9">
+                {openFiles.map((file) => (
+                  <div
+                    key={file.path}
+                    onClick={() => setActiveFilePath(file.path)}
+                    className={`flex items-center gap-2 px-3 h-full cursor-pointer border-r border-zinc-800 min-w-0 transition-colors ${
+                      activeFilePath === file.path
+                        ? 'bg-[#18181b] text-white border-t-2 border-t-blue-500'
+                        : 'bg-[#0c0c0e] text-zinc-500 hover:text-zinc-300 hover:bg-[#121214]'
+                    }`}
+                  >
+                    <FileCode className={`w-3.5 h-3.5 ${activeFilePath === file.path ? 'text-blue-400' : 'text-zinc-600'}`} />
+                    <span className="text-[11px] font-medium truncate max-w-[120px]">
+                      {file.path.split('/').pop()}
+                    </span>
+                    {file.isDirty && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closeFile(file.path); }}
+                      className="ml-1 p-0.5 rounded-sm hover:bg-zinc-700 text-zinc-600 hover:text-zinc-300 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {openFiles.length === 0 && (
+                  <div className="px-4 text-[11px] text-zinc-600 flex items-center gap-2">
+                    <ChevronRight className="w-3 h-3" /> Select a file to start coding
+                  </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving || !activeFile.isDirty}
-                  className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-700/50 hover:bg-zinc-600 rounded transition-colors disabled:opacity-50"
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  onClick={handleRun}
-                  disabled={isRunning}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isRunning ? (
-                    <>
-                      <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                      </svg>
-                      Run
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Code Editor Area */}
-          <div className="flex-1 relative min-h-0">
-            {activeFile ? (
-              <MonacoEditor
-                value={activeFile.content}
-                onChange={handleContentChange}
-                path={activeFile.path}
-                onSave={handleSave}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                <p className="text-sm">Select a file from the explorer to start editing</p>
+              {/* Editor Toolbar */}
+              <div className="flex items-center justify-between px-4 h-10 bg-[#121214] border-b border-zinc-800">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[300px]">
+                    {activeFilePath || 'No file selected'}
+                  </span>
+                  {isLoadingFile && <Loader2 className="w-3 h-3 text-zinc-500 animate-spin" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving || !activeFile?.isDirty}
+                    className="h-7 px-2.5 text-[11px] font-medium text-zinc-400 hover:text-white"
+                  >
+                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-[11px] font-medium bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600/20 border border-emerald-600/20"
+                  >
+                    <Play className="w-3.5 h-3.5 mr-1.5" />
+                    Run
+                  </Button>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Right Panel - Task Description */}
-        <div className="w-[320px] flex flex-col bg-[#252526] border-l border-zinc-800">
-          {/* Task Panel Header */}
-          <div className="px-4 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+              {/* Editor */}
+              <div className="flex-1 relative bg-[#18181b]">
+                {activeFile ? (
+                  <MonacoEditor
+                    value={activeFile.content}
+                    onChange={handleContentChange}
+                    path={activeFile.path}
+                    onSave={handleSave}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-4 opacity-40">
+                    <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-zinc-700 flex items-center justify-center">
+                      <FileCode className="w-8 h-8" />
+                    </div>
+                    <p className="text-xs font-medium">Select a file from the explorer</p>
+                  </div>
+                )}
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle className="bg-zinc-800" />
+
+            {/* Bottom Panel: Terminal */}
+            <ResizablePanel defaultSize={30} className="bg-[#0c0c0e]">
+              <div className="flex items-center gap-2 px-4 h-8 border-b border-zinc-800 bg-[#09090b]">
+                <TerminalIcon className="w-3.5 h-3.5 text-zinc-500" />
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Terminal</span>
+              </div>
+              <div className="h-[calc(100%-32px)]">
+                <TerminalTabs workspaceId={workspaceId!} />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle className="bg-zinc-800" />
+
+        {/* Right Panel: Task Instructions */}
+        <ResizablePanel defaultSize={27} minSize={20} className="bg-[#09090b] flex flex-col">
+          <div className="flex items-center justify-between px-4 h-12 border-b border-zinc-800">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-              <span className="text-sm font-medium text-zinc-200">Task</span>
+              <CheckCircle2 className={`w-4 h-4 ${isCompleted ? 'text-emerald-500' : 'text-blue-500'}`} />
+              <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Task</span>
             </div>
             {isCompleted && (
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                ✓
-              </span>
+              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Done</Badge>
             )}
           </div>
 
-          {/* Task Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4">
-              {/* Task Title */}
-              <h2 className="text-base font-semibold text-zinc-100 mb-2">{task.title}</h2>
-              
-              {/* Task Meta */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                  task.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
-                  task.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-red-500/20 text-red-400'
-                }`}>
+          <ScrollArea className="flex-1">
+            <div className="p-6">
+              <h2 className="text-lg font-bold text-white mb-4 leading-tight">{task.title}</h2>
+              <div className="flex items-center gap-3 mb-6">
+                <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter bg-zinc-900 border-zinc-800 text-zinc-400">
                   {task.difficulty}
-                </span>
-                {task.estimated_minutes && (
-                  <span className="text-xs text-zinc-500 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {task.estimated_minutes}m
-                  </span>
-                )}
+                </Badge>
+                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-medium">
+                  <Clock className="w-3 h-3" />
+                  {task.estimated_minutes}m
+                </div>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-zinc-700/50 mb-3"></div>
-
-              {/* Task Description */}
-              <div className="prose prose-invert prose-sm max-w-none">
-                <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap">{task.description}</p>
+              <div className="prose prose-invert prose-sm max-w-none prose-p:text-zinc-400 prose-p:leading-relaxed prose-headings:text-zinc-200 prose-code:text-blue-400 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800">
+                <p className="whitespace-pre-wrap">{task.description}</p>
               </div>
 
-              {/* Hints Section */}
               {task.hints && task.hints.length > 0 && (
-                <div className="mt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    <span className="text-xs font-medium text-zinc-300">Hints</span>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {task.hints.map((hint, index) => (
-                      <li key={index} className="flex items-start gap-2 text-xs text-zinc-400">
-                        <span className="text-amber-500 mt-0.5">•</span>
-                        <span>{hint}</span>
-                      </li>
+                <div className="mt-8 pt-8 border-t border-zinc-800">
+                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Implementation Hints</h3>
+                  <div className="space-y-3">
+                    {task.hints.map((hint, i) => (
+                      <div key={i} className="flex gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
+                        <div className="mt-0.5 text-blue-500 group-hover:scale-110 transition-transform">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </div>
+                        <p className="text-[11px] text-zinc-400 leading-relaxed italic">{hint}</p>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          </ScrollArea>
 
-          {/* Verify Task Button */}
-          <div className="p-3 border-t border-zinc-800">
+          <div className="p-4 border-t border-zinc-800 bg-[#0c0c0e]">
             {isCompleted ? (
-              <div className="flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-medium text-emerald-400">Task Completed!</span>
-              </div>
+              <Button disabled className="w-full bg-emerald-600/20 text-emerald-500 border border-emerald-600/20 h-10">
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Task Completed
+              </Button>
             ) : (
-              <button
-                onClick={handleVerifyTask}
+              <Button 
+                onClick={handleVerifyTask} 
                 disabled={isVerifying}
-                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 h-10 font-bold text-xs uppercase tracking-widest"
               >
-                {isVerifying ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Verify Task
-                  </>
-                )}
-              </button>
+                {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                {isVerifying ? 'Verifying...' : 'Verify Changes'}
+              </Button>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Bottom Panel - Terminal */}
-      <div className="h-48 border-t border-zinc-800">
-        {workspace ? (
-          <TerminalTabs workspaceId={workspace.workspace_id} />
-        ) : (
-          <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
-            <span className="text-xs text-zinc-500">Waiting for workspace...</span>
-          </div>
-        )}
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   )
+
+  function handleContentChange(newContent: string) {
+    if (activeFilePath) updateFileContent(activeFilePath, newContent)
+  }
 }

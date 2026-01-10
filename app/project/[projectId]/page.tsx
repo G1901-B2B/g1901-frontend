@@ -181,9 +181,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <>
+    <div className="h-screen flex flex-col bg-[#2a2e32] overflow-hidden">
       <Header />
-      <main className="min-h-screen bg-[#2a2e32]">
+      <main className="flex-1 relative overflow-hidden">
         {/* Subtle background pattern */}
         <div 
           className="fixed inset-0 opacity-30 pointer-events-none"
@@ -193,9 +193,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           }}
         />
         
-        <div className="relative max-w-[1600px] mx-auto">
+        <div className="h-full max-w-[1600px] mx-auto flex flex-col">
           {/* Main Content */}
-          <div className="px-4 md:px-6 py-3">
+          <div className="flex-1 px-4 md:px-6 py-3 overflow-hidden">
             {project.status === 'ready' ? (
               <RoadmapPage projectId={projectId} />
             ) : (
@@ -204,7 +204,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
       </main>
-      
-    </>
+    </div>
   )
 }

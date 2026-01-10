@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react'
 import { UserButton, SignedIn, SignedOut, useAuth } from '@clerk/nextjs'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Layout, User } from 'lucide-react'
 
 export default function Header() {
-  const { isLoaded } = useAuth()
+  const { isLoaded, userId } = useAuth()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -13,102 +16,65 @@ export default function Header() {
   }, [])
 
   return (
-    <header className="border-b border-zinc-700 bg-[#2f3338]">
-      <nav className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+    <header className="border-b border-zinc-800 bg-[#1e1e1e] sticky top-0 z-50">
+      <nav className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link 
-          href="/" 
-          className="hover:opacity-80 transition-opacity duration-200"
-          style={{ display: 'flex', alignItems: 'center' }}
+          href={userId ? "/dashboard" : "/"} 
+          className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
-          <span style={{ color: '#fff', display: 'block', lineHeight: 0 }}>
-            <svg
-              width="140"
-              height="45"
-              viewBox="0 0 220 48"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{ display: 'block' }}
-            >
-              <g style={{ color: '#fff' }}>
-                <path
-                  d="M24 8 C14.06 8 6 16.06 6 26 C6 35.94 14.06 44 24 44 C29.52 44 34.48 41.6 37.88 37.8 L33.2 33.6 C31.1 36 27.7 38 24 38 C17.37 38 12 32.63 12 26 C12 19.37 17.37 14 24 14 C27.7 14 31.1 16 33.2 18.4 L37.88 14.2 C34.48 10.4 29.52 8 24 8Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M44 8 C34.06 8 26 16.06 26 26 C26 35.94 34.06 44 44 44 C53.94 44 62 35.94 62 26 H44V31H56 C54.4 35.4 49.6 38 44 38 C37.37 38 32 32.63 32 26 C32 19.37 37.37 14 44 14 C47.7 14 51.1 16 53.2 18.4 L57.88 14.2 C54.48 10.4 49.52 8 44 8Z"
-                  fill="currentColor"
-                />
-                <text
-                  x="76"
-                  y="33"
-                  fontFamily="Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
-                  fontSize="24"
-                  fontWeight="600"
-                  fill="currentColor"
-                  letterSpacing="-0.02em"
-                >
-                  GitGuide
-                </text>
-              </g>
-            </svg>
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Layout className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-lg font-bold text-white tracking-tight">
+            GitGuide
           </span>
         </Link>
         
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6">
           {!mounted || !isLoaded ? (
-            // Show placeholder during hydration to prevent mismatch
-            <div className="flex items-center gap-8">
-              <div className="w-16 h-4 bg-zinc-700/50 rounded animate-pulse" />
-              <div className="w-20 h-8 bg-zinc-700/50 rounded animate-pulse" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-16 h-4 bg-zinc-800" />
+              <Skeleton className="w-24 h-9 bg-zinc-800 rounded-full" />
             </div>
           ) : (
             <>
               <SignedOut>
-                <Link 
-                  href="/sign-in" 
-                  className="text-[13px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors duration-200"
-                >
-                  Sign in
-                </Link>
-                <Link 
-                  href="/sign-up"
-                  className="px-3.5 py-1.5 text-[13px] font-medium text-[#2f3338] bg-white rounded-md hover:bg-zinc-100 transition-all duration-200"
-                >
-                  Get started
-                </Link>
+                <Button variant="ghost" asChild className="text-zinc-400 hover:text-white hover:bg-zinc-800 px-3 h-9 text-[13px]">
+                  <Link href="/sign-in">Sign in</Link>
+                </Button>
+                <Button asChild className="bg-white text-zinc-950 hover:bg-zinc-200 rounded-full px-5 h-9 text-[13px] font-semibold">
+                  <Link href="/sign-up">Get started</Link>
+                </Button>
               </SignedOut>
               
               <SignedIn>
-                <Link 
-                  href="/dashboard" 
-                  className="text-[13px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors duration-200"
-                >
-                  Dashboard
-                </Link>
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    variables: {
-                      colorBackground: '#3f4449',
-                      colorText: '#ffffff',
-                      colorTextSecondary: '#a1a1aa',
-                      colorPrimary: '#ffffff',
-                      colorInputBackground: '#2f3338',
-                      colorInputText: '#ffffff',
-                      borderRadius: '0.5rem',
-                    },
-                    elements: {
-                      userButtonPopoverCard: 'bg-[#3f4449] border border-zinc-600 shadow-xl',
-                      userButtonPopoverActionButton: 'text-zinc-300 hover:text-white hover:bg-[#4f5459] transition-all duration-200',
-                      userButtonPopoverActionButtonText: 'text-[13px] font-medium',
-                      userButtonPopoverFooter: 'hidden',
-                      userPreview: 'text-white',
-                      userPreviewTextContainer: 'text-white',
-                      userPreviewSecondaryIdentifier: 'text-zinc-400',
-                      avatarBox: 'w-7 h-7',
-                    },
-                  }}
-                />
+                <Button variant="ghost" asChild className="text-zinc-400 hover:text-white hover:bg-zinc-800 px-3 h-9 text-[13px]">
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+                <div className="pl-3 border-l border-zinc-800 ml-3 flex items-center relative">
+                  <UserButton 
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        rootBox: "flex items-center justify-center",
+                        userButtonTrigger: "focus:outline-none focus:ring-2 focus:ring-blue-600/50 rounded-full transition-all hover:scale-105 active:scale-95",
+                        avatarBox: "w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center border border-blue-500 shadow-lg",
+                        userButtonAvatarBox: "hidden",
+                        userButtonAvatarImage: "hidden",
+                        userButtonPopoverCard: "bg-[#18181b] border border-zinc-800 shadow-2xl rounded-xl overflow-hidden min-w-[240px]",
+                        userButtonPopoverActionButton: "hover:bg-zinc-800/50 text-zinc-400 hover:text-white transition-colors py-3 px-4",
+                        userButtonPopoverActionButtonText: "text-[10px] font-bold uppercase tracking-[0.1em]",
+                        userButtonPopoverFooter: "hidden",
+                        userPreview: "text-white px-5 py-4 border-b border-zinc-800 bg-zinc-900/30",
+                        userPreviewMainIdentifier: "text-sm font-bold tracking-tight",
+                        userPreviewSecondaryIdentifier: "text-[11px] text-zinc-500 font-medium",
+                      },
+                    }}
+                  />
+                  <div className="absolute inset-0 left-3 flex items-center justify-center pointer-events-none">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                </div>
               </SignedIn>
             </>
           )}

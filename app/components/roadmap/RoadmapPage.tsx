@@ -124,7 +124,7 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
   
   return (
     <>
-      <div className="flex flex-col h-[calc(100vh-120px)]">
+      <div className="flex flex-col h-full overflow-hidden">
         {/* Day Cards Strip */}
         <div className="flex-shrink-0">
           <DayCardsStrip
@@ -136,7 +136,7 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
         </div>
         
         {/* Kanban Board */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 h-full">
           {dayDetails && (
             <KanbanBoard
               concepts={dayDetails.concepts}

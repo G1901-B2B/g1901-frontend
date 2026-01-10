@@ -47,7 +47,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en">
+      <html lang="en" className="dark">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           <RoutePerformanceLogger />
           {children}

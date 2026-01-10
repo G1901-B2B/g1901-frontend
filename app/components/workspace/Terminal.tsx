@@ -117,8 +117,17 @@ export default function TerminalComponent({
   // Initialize terminal instance
   const initializeTerminal = useCallback(() => {
     log('INIT', `Container: ${!!containerRef.current}, Terminal: ${!!Terminal}, Already init: ${!!terminalRef.current}`)
+    
+    // Safety checks: ensure refs and container exist, and container has dimensions
     if (!containerRef.current || !Terminal || !FitAddon || !WebLinksAddon) return
     if (terminalRef.current) return // Already initialized
+
+    // Defensive check: xterm open/fit fails if container has no dimensions (display: none)
+    const rect = containerRef.current.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) {
+      log('INIT', 'Container has no dimensions, deferring initialization')
+      return
+    }
 
     log('INIT', 'Initializing terminal instance...')
     // Import CSS
@@ -161,47 +170,66 @@ export default function TerminalComponent({
     term.loadAddon(fitAddon)
     term.loadAddon(webLinksAddon)
 
-    term.open(containerRef.current)
-    fitAddon.fit()
+    try {
+      term.open(containerRef.current)
+      fitAddon.fit()
+      
+      terminalRef.current = term
+      fitAddonRef.current = fitAddon
+      setTerminalReady(true)
+      log('INIT', 'Terminal instance created and opened')
 
-    terminalRef.current = term
-    fitAddonRef.current = fitAddon
-    setTerminalReady(true)
-    log('INIT', 'Terminal instance created and opened')
+      // Handle terminal input
+      term.onData((data) => {
+        log('INPUT', `Sending ${data.length} chars`)
+        sendInput(data)
+      })
 
-    // Handle terminal input
-    term.onData((data) => {
-      log('INPUT', `Sending ${data.length} chars`)
-      sendInput(data)
-    })
+      // Handle resize
+      term.onResize(({ cols, rows }) => {
+        resize(cols, rows)
+      })
 
-    // Handle resize
-    term.onResize(({ cols, rows }) => {
-      resize(cols, rows)
-    })
+      // Show connecting message
+      term.write('Connecting to container...\r\n')
+    } catch (err) {
+      console.error('Failed to open/fit terminal:', err)
+      term.dispose()
+    }
+  }, [sendInput, resize, isActive])
 
-    // Set up resize observer with safety check
+  // Initialize terminal when container is ready AND active
+  useEffect(() => {
+    if (isActive && containerRef.current && Terminal && !terminalRef.current) {
+      initializeTerminal()
+    }
+  }, [initializeTerminal, isActive])
+
+  // Set up resize observer separately
+  useEffect(() => {
+    if (!containerRef.current) return
+
     resizeObserverRef.current = new ResizeObserver(() => {
       if (fitAddonRef.current && isActive && terminalRef.current) {
         try {
-          fitAddonRef.current.fit()
+          const rect = containerRef.current?.getBoundingClientRect()
+          if (rect && rect.width > 0 && rect.height > 0) {
+            fitAddonRef.current.fit()
+          }
         } catch (e) {
-          // Terminal may be disposed, ignore fit errors
+          // Terminal may be disposed
         }
+      } else if (!terminalRef.current && isActive && Terminal) {
+        // Try initializing if it wasn't due to dimensions
+        initializeTerminal()
       }
     })
+
     resizeObserverRef.current.observe(containerRef.current)
-
-    // Show connecting message
-    term.write('Connecting to container...\r\n')
-  }, [sendInput, resize, isActive])
-
-  // Initialize terminal when container is ready
-  useEffect(() => {
-    if (containerRef.current && Terminal && !terminalRef.current) {
-      initializeTerminal()
+    return () => {
+      resizeObserverRef.current?.disconnect()
     }
-  }, [initializeTerminal])
+  }, [isActive, initializeTerminal])
 
   // Fetch token when terminal is ready
   useEffect(() => {
@@ -252,22 +280,26 @@ export default function TerminalComponent({
       // Fit terminal when tab becomes active
       setTimeout(() => {
         try {
-          fitAddonRef.current?.fit()
-          terminalRef.current?.focus()
+          const rect = containerRef.current?.getBoundingClientRect()
+          if (rect && rect.width > 0 && rect.height > 0) {
+            fitAddonRef.current?.fit()
+            terminalRef.current?.focus()
+          }
         } catch (e) {
           // Terminal may be disposed
         }
-      }, 0)
+      }, 50) // Small delay to ensure display: block has taken effect
     }
   }, [isActive])
 
   // Cleanup
   useEffect(() => {
     return () => {
-      log('CLEANUP', 'Disposing terminal...')
+      log('CLEANUP', 'Disposing terminal components...')
       disconnect()
-      resizeObserverRef.current?.disconnect()
       terminalRef.current?.dispose()
+      terminalRef.current = null
+      fitAddonRef.current = null
     }
   }, [disconnect])
 

@@ -8,6 +8,12 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+    // Redirect authenticated users from home to dashboard
+    const { userId } = await auth();
+    if (userId && request.nextUrl.pathname === '/') {
+      return Response.redirect(new URL('/dashboard', request.url))
+    }
+
     // Protect all routes except public ones
     if (!isPublicRoute(request)) {
       await auth.protect()

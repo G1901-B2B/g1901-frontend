@@ -58,6 +58,7 @@ export default function WorkplaceIDE({ taskDetails, initialCompleted, onProgress
         
       case 'github_profile':
       case 'create_repo':
+      case 'github_connect':
       case 'verify_commit':
         return <GitHubTaskPanel task={task} project={project} onComplete={handleComplete} initialCompleted={isCompleted} nextTaskId={nextTaskId} nextNavigation={nextNavigation} />
       

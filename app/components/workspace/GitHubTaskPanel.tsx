@@ -16,8 +16,11 @@ import {
   ArrowRight, 
   CheckCircle2,
   FolderCode,
-  GitCommit
+  GitCommit,
+  Key,
+  ExternalLink
 } from 'lucide-react'
+import { Checkbox } from '../../../components/ui/checkbox'
 
 interface NextNavigation {
   type: 'task' | 'concept' | 'day' | 'complete'
@@ -37,6 +40,8 @@ interface GitHubTaskPanelProps {
     target_days: number
     status: string
     created_at: string
+    user_repo_url?: string  // User's repository URL (from Day 0 Task 2)
+    github_username?: string  // GitHub username (from Day 0 Task 2.5)
   }
   onComplete: () => void
   nextTaskId?: string | null
@@ -66,6 +71,8 @@ export default function GitHubTaskPanel({
 }: GitHubTaskPanelProps) {
   const { getToken } = useAuth()
   const [input, setInput] = useState('')
+  const [patToken, setPatToken] = useState('')
+  const [consentAccepted, setConsentAccepted] = useState(false)
   const [status, setStatus] = useState<VerificationStatus>(initialCompleted ? 'success' : 'idle')
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
   const [isCompleted, setIsCompleted] = useState(initialCompleted || false)
@@ -103,6 +110,8 @@ export default function GitHubTaskPanel({
           footer = "Once your repository is live, paste the URL below so we can verify your project setup."
         } else if (task.task_type === 'verify_commit') {
           footer = "After pushing your changes, paste the commit URL or SHA below to verify your contribution."
+        } else if (task.task_type === 'github_connect') {
+          footer = "After providing your PAT and accepting the terms, we'll verify your token and store it securely."
         } else {
           footer = "Please provide the required information below to proceed with verification."
         }
@@ -164,7 +173,66 @@ export default function GitHubTaskPanel({
     return res.json()
   }
 
+  const handleGitHubConnect = async () => {
+    if (!patToken.trim() || !consentAccepted || status === 'verifying' || isCompleted) return
+    setStatus('verifying')
+    setVerificationResult(null)
+    
+    try {
+      const token = await getToken()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/github/consent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          token: patToken,
+          consent_accepted: consentAccepted,
+          github_username: extractUsername(project.user_repo_url || project.github_url) || '',
+          project_id: project.project_id
+        })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to connect GitHub account')
+      }
+      
+      const data = await response.json()
+      
+      const result: VerificationResult = {
+        success: true,
+        checks: [
+          { label: 'Token validated', passed: true, detail: 'PAT verified' },
+          { label: 'Consent recorded', passed: true, detail: 'Terms accepted' },
+          { label: 'Account connected', passed: true, detail: 'GitHub connected' }
+        ]
+      }
+      
+      setVerificationResult(result)
+      if (result.success) {
+        await completeTask(project.project_id, task.task_id, token)
+        setStatus('success')
+        setIsCompleted(true)
+        onComplete()
+      }
+    } catch (err) {
+      setVerificationResult({ 
+        success: false, 
+        checks: [], 
+        error: err instanceof Error ? err.message : 'Failed to connect GitHub account' 
+      })
+      setStatus('error')
+    }
+  }
+
   const handleVerify = async () => {
+    if (task.task_type === 'github_connect') {
+      await handleGitHubConnect()
+      return
+    }
+    
     if (!input.trim() || status === 'verifying' || isCompleted) return
     setStatus('verifying')
     setVerificationResult(null)
@@ -182,6 +250,12 @@ export default function GitHubTaskPanel({
             { label: 'Bio & Name complete', passed: !!data.name && !!data.bio, detail: data.bio ? 'Found bio' : 'Bio missing' }
           ]
         }
+        
+        // Store username when completing task (source of truth)
+        if (result.success) {
+          const token = await getToken()
+          await completeTask(project.project_id, task.task_id, token, { github_username: username })
+        }
       } else if (task.task_type === 'create_repo') {
         const repo = extractRepo(input)
         if (!repo) throw new Error('Invalid repo URL')
@@ -192,6 +266,12 @@ export default function GitHubTaskPanel({
             { label: 'Repository found', passed: true, detail: data.full_name },
             { label: 'Visibility check', passed: !data.private, detail: data.private ? 'Private' : 'Public' }
           ]
+        }
+        
+        // Store repo URL when completing task
+        if (result.success) {
+          const token = await getToken()
+          await completeTask(project.project_id, task.task_id, token, { user_repo_url: input.trim() })
         }
       } else if (task.task_type === 'verify_commit') {
         const commit = extractCommit(input, project.github_url)
@@ -209,14 +289,23 @@ export default function GitHubTaskPanel({
             { label: 'Commit message found', passed: hasMessage, detail: data.commit?.message?.split('\n')[0] || 'No message' }
           ]
         }
+        
+        // Store commit SHA when completing task
+        if (result.success) {
+          const token = await getToken()
+          await completeTask(project.project_id, task.task_id, token, { commit_sha: commit.sha })
+        }
       } else {
         result = { success: false, checks: [], error: 'Unsupported task type' }
       }
 
       setVerificationResult(result)
       if (result.success) {
-        const token = await getToken()
-        await completeTask(project.project_id, task.task_id, token)
+        // Only complete task if not already completed above (github_profile, create_repo, and verify_commit handle it)
+        if (task.task_type !== 'github_profile' && task.task_type !== 'create_repo' && task.task_type !== 'verify_commit') {
+          const token = await getToken()
+          await completeTask(project.project_id, task.task_id, token)
+        }
         setStatus('success')
         setIsCompleted(true)
         onComplete()
@@ -234,6 +323,7 @@ export default function GitHubTaskPanel({
   const configMap: Partial<Record<Task['task_type'], TaskConfig>> = {
     github_profile: { icon: Github, placeholder: 'https://github.com/your-username', label: 'Verify Profile' },
     create_repo: { icon: FolderCode, placeholder: 'https://github.com/you/project-name', label: 'Verify Repository' },
+    github_connect: { icon: Key, placeholder: 'Paste your Personal Access Token', label: 'Connect GitHub' },
     verify_commit: { icon: GitCommit, placeholder: 'Commit URL or SHA', label: 'Verify Commit' },
   }
 
@@ -297,26 +387,90 @@ export default function GitHubTaskPanel({
               {isCompleted && <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Verified</Badge>}
             </div>
 
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={config.placeholder}
-                  disabled={isCompleted}
-                  className="bg-zinc-950/50 border-zinc-800 focus:border-blue-500/50 h-12 text-sm text-white placeholder:text-zinc-700 rounded-xl"
-                />
+            {task.task_type === 'github_connect' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
+                    Personal Access Token (PAT)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={patToken}
+                      onChange={(e) => setPatToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      disabled={isCompleted}
+                      className="bg-zinc-950/50 border-zinc-800 focus:border-blue-500/50 h-12 text-sm text-white placeholder:text-zinc-700 rounded-xl font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open('https://github.com/settings/tokens?type=beta', '_blank')}
+                      className="h-12 px-4 border-zinc-800 text-zinc-400 hover:text-white"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Create PAT
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-zinc-600 mt-2">
+                    Create a fine-grained PAT scoped to your repository with "Contents" read/write permissions
+                  </p>
+                </div>
+                
+                <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="consent"
+                      checked={consentAccepted}
+                      onCheckedChange={(checked) => setConsentAccepted(checked === true)}
+                      disabled={isCompleted}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="consent" className="text-[12px] text-zinc-400 leading-relaxed cursor-pointer">
+                      <strong className="text-yellow-500">I understand and agree:</strong> To ensure accurate task verification and progress tracking, GitGuide will automatically reset any commits made outside the platform (via GitHub web UI, local git, or other tools). This ensures our verification system can accurately check your work. Your code will always be stored in your GitHub repository, and all commits made through GitGuide are permanent.
+                    </label>
+                  </div>
+                </div>
+                
+                {!isCompleted && (
+                  <Button 
+                    onClick={handleVerify}
+                    disabled={status === 'verifying' || !patToken.trim() || !consentAccepted}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
+                  >
+                    {status === 'verifying' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      'Connect & Continue'
+                    )}
+                  </Button>
+                )}
               </div>
-              {!isCompleted && (
-                <Button 
-                  onClick={handleVerify}
-                  disabled={status === 'verifying' || !input.trim()}
-                  className="h-12 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
-                >
-                  {status === 'verifying' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
-                </Button>
-              )}
-            </div>
+            ) : (
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={config.placeholder}
+                    disabled={isCompleted}
+                    className="bg-zinc-950/50 border-zinc-800 focus:border-blue-500/50 h-12 text-sm text-white placeholder:text-zinc-700 rounded-xl"
+                  />
+                </div>
+                {!isCompleted && (
+                  <Button 
+                    onClick={handleVerify}
+                    disabled={status === 'verifying' || !input.trim()}
+                    className="h-12 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
+                  >
+                    {status === 'verifying' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {verificationResult && (

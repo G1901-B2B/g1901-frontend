@@ -360,7 +360,12 @@ export async function startTask(projectId: string, taskId: string, token: string
   return response.json()
 }
 
-export async function completeTask(projectId: string, taskId: string, token: string | null): Promise<{ success: boolean }> {
+export async function completeTask(
+  projectId: string, 
+  taskId: string, 
+  token: string | null,
+  data?: { github_username?: string; user_repo_url?: string; commit_sha?: string }
+): Promise<{ success: boolean }> {
   if (!token) {
     throw new Error('Authentication required')
   }
@@ -368,7 +373,11 @@ export async function completeTask(projectId: string, taskId: string, token: str
   const headers = getAuthHeadersClient(token)
   const response = await fetch(`${API_BASE_URL}/api/progress/${projectId}/task/${taskId}/complete`, {
     method: 'POST',
-    headers,
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json',
+    },
+    body: data ? JSON.stringify(data) : undefined,
   })
   
   if (!response.ok) {

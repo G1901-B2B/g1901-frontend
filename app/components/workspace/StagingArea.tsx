@@ -25,9 +25,11 @@ export default function StagingArea({
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   const stagedFiles = status?.staged || []
+  const deletedFiles = status?.deleted || []
   const unstagedFiles = [
-    ...(status?.modified || []).filter(f => !stagedFiles.includes(f)),
-    ...(status?.untracked || [])
+    ...(status?.modified || []).filter(f => !stagedFiles.includes(f) && !deletedFiles.includes(f)),
+    ...(status?.untracked || []),
+    ...deletedFiles.filter(f => !stagedFiles.includes(f))
   ]
 
   const handleStage = async (file?: string) => {
@@ -81,8 +83,13 @@ export default function StagingArea({
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <FileText className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                      <span className="text-[11px] text-zinc-300 truncate font-mono">{file}</span>
+                      <FileText className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? 'text-red-500' : 'text-emerald-400'}`} />
+                      <span className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? 'text-red-400 line-through' : 'text-zinc-300'}`}>{file}</span>
+                      {status?.deleted?.includes(file) && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0">
+                          Deleted
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {onViewDiff && (
@@ -147,11 +154,16 @@ export default function StagingArea({
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <FileText className="w-3 h-3 text-yellow-500 flex-shrink-0" />
-                      <span className="text-[11px] text-zinc-300 truncate font-mono">{file}</span>
+                      <FileText className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? 'text-red-500' : 'text-yellow-500'}`} />
+                      <span className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? 'text-red-400 line-through' : 'text-zinc-300'}`}>{file}</span>
                       {status?.untracked?.includes(file) && (
                         <Badge variant="outline" className="text-[9px] px-1 py-0 text-zinc-500 border-zinc-700 shrink-0">
                           New
+                        </Badge>
+                      )}
+                      {status?.deleted?.includes(file) && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0">
+                          Deleted
                         </Badge>
                       )}
                     </div>

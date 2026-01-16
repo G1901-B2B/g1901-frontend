@@ -26,6 +26,7 @@ interface GitPanelProps {
   commitGraph?: CommitGraphEntry[]
   commitBranches?: Record<string, string>
   onCommitClick?: (sha: string) => void
+  onResetToCommit?: (sha: string) => Promise<void>
   // Branch management
   branches?: BranchInfo[]
   onCreateBranch?: (name: string, startPoint?: string) => Promise<void>
@@ -54,6 +55,7 @@ export default function GitPanel({
   commitGraph = [],
   commitBranches = {},
   onCommitClick,
+  onResetToCommit,
   branches = [],
   onCreateBranch,
   onCheckoutBranch,
@@ -69,11 +71,14 @@ export default function GitPanel({
   const [activeTab, setActiveTab] = useState('status')
   const fileCount = useMemo(() => {
     if (!status) return 0
-    return (
-      (status.modified?.length || 0) +
-      (status.staged?.length || 0) +
-      (status.untracked?.length || 0)
-    )
+    // Count unique files (deleted files are also in modified, so we need to deduplicate)
+    const allFiles = new Set([
+      ...(status.modified || []),
+      ...(status.staged || []),
+      ...(status.untracked || []),
+      ...(status.deleted || []),
+    ])
+    return allFiles.size
   }, [status])
 
   const isClean = fileCount === 0 && (status?.ahead || 0) === 0 && (status?.behind || 0) === 0
@@ -121,26 +126,41 @@ export default function GitPanel({
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
-          <TabsList className="grid w-full grid-cols-5 h-8 bg-zinc-800 shrink-0">
-            <TabsTrigger value="status" className="text-[10px] px-2">
-              Status
+          <TabsList className={`flex w-full h-8 bg-zinc-800 shrink-0 gap-0.5 p-0.5 min-w-0`}>
+            <TabsTrigger 
+              value="status" 
+              className="text-[10px] px-2 min-w-0 flex-1 flex items-center justify-center gap-1 overflow-hidden"
+            >
+              <span className="truncate whitespace-nowrap">Status</span>
             </TabsTrigger>
-            <TabsTrigger value="history" className="text-[10px] px-2">
-              <History className="w-3 h-3 mr-1" />
-              History
+            <TabsTrigger 
+              value="history" 
+              className="text-[10px] px-1.5 min-w-0 flex-1 flex items-center justify-center gap-1 overflow-hidden"
+            >
+              <History className="w-3 h-3 shrink-0" />
+              <span className="truncate whitespace-nowrap min-w-0">History</span>
             </TabsTrigger>
-            <TabsTrigger value="branches" className="text-[10px] px-2">
-              <GitBranch className="w-3 h-3 mr-1" />
-              Branches
+            <TabsTrigger 
+              value="branches" 
+              className="text-[10px] px-1.5 min-w-0 flex-1 flex items-center justify-center gap-1 overflow-hidden"
+            >
+              <GitBranch className="w-3 h-3 shrink-0" />
+              <span className="truncate whitespace-nowrap min-w-0">Branches</span>
             </TabsTrigger>
-            <TabsTrigger value="merge" className="text-[10px] px-2">
-              <GitMerge className="w-3 h-3 mr-1" />
-              Merge
+            <TabsTrigger 
+              value="merge" 
+              className="text-[10px] px-1.5 min-w-0 flex-1 flex items-center justify-center gap-1 overflow-hidden"
+            >
+              <GitMerge className="w-3 h-3 shrink-0" />
+              <span className="truncate whitespace-nowrap min-w-0">Merge</span>
             </TabsTrigger>
             {hasConflicts && (
-              <TabsTrigger value="conflicts" className="text-[10px] px-2 text-yellow-500">
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                Conflicts
+              <TabsTrigger 
+                value="conflicts" 
+                className="text-[10px] px-1.5 min-w-0 flex-1 flex items-center justify-center gap-1 text-yellow-500 overflow-hidden"
+              >
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span className="truncate whitespace-nowrap min-w-0">Conflicts</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -248,6 +268,7 @@ export default function GitPanel({
                   branches={commitBranches}
                   currentBranch={status?.branch || undefined}
                   onCommitClick={onCommitClick}
+                  onResetToCommit={onResetToCommit}
                   isLoading={isLoading}
                 />
               </div>

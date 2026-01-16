@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { GitBranch, GitCommit, Loader2 } from 'lucide-react'
+import { GitBranch, GitCommit, Loader2, RotateCcw, X } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { CommitGraphEntry } from '../../lib/api-git'
 
 interface CommitHistoryGraphProps {
@@ -12,6 +20,7 @@ interface CommitHistoryGraphProps {
   branches: Record<string, string>
   currentBranch?: string
   onCommitClick?: (sha: string) => void
+  onResetToCommit?: (sha: string) => Promise<void>
   isLoading?: boolean
 }
 
@@ -20,9 +29,12 @@ export default function CommitHistoryGraph({
   branches,
   currentBranch,
   onCommitClick,
+  onResetToCommit,
   isLoading = false
 }: CommitHistoryGraphProps) {
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState<string | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   // Build commit map for quick lookup
   const commitMap = useMemo(() => {
@@ -174,11 +186,27 @@ export default function CommitHistoryGraph({
                         {commit.author_name} • {new Date(commit.date).toLocaleDateString()}
                       </div>
                     </div>
-                    {commit.parents.length > 1 && (
-                      <div className="text-[9px] text-zinc-600">
-                        Merge
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {commit.parents.length > 1 && (
+                        <div className="text-[9px] text-zinc-600">
+                          Merge
+                        </div>
+                      )}
+                      {onResetToCommit && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowResetConfirm(commit.sha)
+                          }}
+                          title="Reset to this commit"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -186,6 +214,50 @@ export default function CommitHistoryGraph({
           </div>
         </ScrollArea>
       </CardContent>
+      
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={showResetConfirm !== null} onOpenChange={(open) => !open && setShowResetConfirm(null)}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Reset to Commit</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              This will reset your current branch to commit{' '}
+              <span className="font-mono text-zinc-300">{showResetConfirm?.slice(0, 7)}</span>.
+              <br />
+              <strong className="text-red-400">Warning:</strong> This will discard all uncommitted changes and commits after this point.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowResetConfirm(null)}
+              disabled={isResetting}
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!showResetConfirm || !onResetToCommit) return
+                setIsResetting(true)
+                try {
+                  await onResetToCommit(showResetConfirm)
+                  setShowResetConfirm(null)
+                } catch (error) {
+                  console.error('Failed to reset:', error)
+                } finally {
+                  setIsResetting(false)
+                }
+              }}
+              disabled={isResetting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isResetting ? 'Resetting...' : 'Reset to Commit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -25,6 +25,7 @@ import {
   resolveConflict,
   mergeBranch,
   abortMerge,
+  resetToCommit,
   type GitCommitEntry,
   type GitStatusResponse,
   type CommitGraphEntry,
@@ -35,7 +36,7 @@ import { useWorkspaceStore } from '../../hooks/useWorkspaceStore'
 import MonacoEditor from './MonacoEditor'
 import FileExplorer from './FileExplorer'
 import TerminalTabs from './TerminalTabs'
-import GitPanel from './GitPanel'
+import RightSidePanel from './RightSidePanel'
 import DiffViewer from './DiffViewer'
 import UncommittedChangesDialog from './UncommittedChangesDialog'
 import ExternalCommitsNotification from './ExternalCommitsNotification'
@@ -103,7 +104,6 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
   const [commitBranches, setCommitBranches] = useState<Record<string, string>>({})
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [conflicts, setConflicts] = useState<string[]>([])
-  const [isGitPanelOpen, setIsGitPanelOpen] = useState(false)
   const [uncommittedDialogOpen, setUncommittedDialogOpen] = useState(false)
   const [uncommittedFiles, setUncommittedFiles] = useState<string[]>([])
   const [externalCommits, setExternalCommits] = useState<GitCommitEntry[]>([])
@@ -570,6 +570,24 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
     }
   }, [workspaceId, getToken, refreshGitData])
 
+  const handleResetToCommit = useCallback(async (sha: string) => {
+    if (!workspaceId) return
+    setGitLoading(true)
+    try {
+      const token = await getToken()
+      if (!token) return
+      await resetToCommit(workspaceId, token, sha, true)
+      await refreshGitData()
+      setOutput(`✓ Reset to commit ${sha.slice(0, 7)}`)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setOutput(`Failed to reset to commit: ${errorMsg}`)
+      throw err // Re-throw so the UI can handle it
+    } finally {
+      setGitLoading(false)
+    }
+  }, [workspaceId, getToken, refreshGitData])
+
   const handleCommitAndPush = useCallback(async () => {
     if (!workspaceId) return
     if (!commitMessage.trim()) {
@@ -787,32 +805,7 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
                     workspaceId={workspaceId}
                     onFileSelect={handleFileSelect}
                     selectedFile={activeFilePath || undefined}
-                    isGitPanelOpen={isGitPanelOpen}
-                    onToggleGitPanel={() => setIsGitPanelOpen(prev => !prev)}
-                    gitStatus={gitStatus}
-                    gitCommits={gitCommits}
-                    gitLoading={gitLoading}
-                    onPull={handlePull}
-                    onPush={handlePush}
                     onGitRefresh={refreshGitData}
-                    onStage={handleStage}
-                    onUnstage={handleUnstage}
-                    onViewDiff={handleViewDiff}
-                    commitGraph={commitGraph}
-                    commitBranches={commitBranches}
-                    branches={branches}
-                    conflicts={conflicts}
-                    onCreateBranch={handleCreateBranch}
-                    onCheckoutBranch={handleCheckoutBranch}
-                    onDeleteBranch={handleDeleteBranch}
-                    onResolveConflict={handleResolveConflict}
-                    onGetConflictContent={handleGetConflictContent}
-                    onWriteFile={handleWriteFileForConflict}
-                    onMerge={handleMerge}
-                    onAbortMerge={handleAbortMerge}
-                    onCommitClick={(sha) => {
-                      setOutput(`Selected commit: ${sha.slice(0, 7)}`)
-                    }}
                   />
                 ) : (
                   <div className="p-4 flex flex-col gap-2">
@@ -899,80 +892,50 @@ export default function CodeEditor({ task, projectId, onComplete, initialComplet
 
         <ResizableHandle withHandle className="bg-zinc-800" />
 
-        {/* Right Panel: Task Instructions */}
+        {/* Right Panel: Task, Git, Chat */}
         <ResizablePanel defaultSize={27} minSize={20} className="bg-[#09090b] flex flex-col">
-          <div className="flex items-center justify-between px-4 h-12 border-b border-zinc-800">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className={`w-4 h-4 ${isCompleted ? 'text-emerald-500' : 'text-blue-500'}`} />
-              <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Task</span>
+          {!externalDismissed && externalCommits.length > 0 && (
+            <div className="p-4 border-b border-zinc-800">
+              <ExternalCommitsNotification
+                commits={externalCommits}
+                onReset={handleExternalReset}
+                onDismiss={() => setExternalDismissed(true)}
+              />
             </div>
-            {isCompleted && (
-              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Done</Badge>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
-              {!externalDismissed && externalCommits.length > 0 && (
-                <div className="mb-4">
-                  <ExternalCommitsNotification
-                    commits={externalCommits}
-                    onReset={handleExternalReset}
-                    onDismiss={() => setExternalDismissed(true)}
-                  />
-                </div>
-              )}
-              {isGitPanelOpen && null}
-              <h2 className="text-lg font-bold text-white mb-4 leading-tight">{task.title}</h2>
-              <div className="flex items-center gap-3 mb-6">
-                <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter bg-zinc-900 border-zinc-800 text-zinc-400">
-                  {task.difficulty}
-                </Badge>
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-medium">
-                  <Clock className="w-3 h-3" />
-                  {task.estimated_minutes}m
-                </div>
-              </div>
-
-              <div className="prose prose-invert prose-sm max-w-none prose-p:text-zinc-400 prose-p:leading-relaxed prose-headings:text-zinc-200 prose-code:text-blue-400 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800">
-                <p className="whitespace-pre-wrap">{task.description}</p>
-              </div>
-
-              {task.hints && task.hints.length > 0 && (
-                <div className="mt-8 pt-8 border-t border-zinc-800">
-                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Implementation Hints</h3>
-                  <div className="space-y-3">
-                    {task.hints.map((hint, i) => (
-                      <div key={i} className="flex gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
-                        <div className="mt-0.5 text-blue-500 group-hover:scale-110 transition-transform">
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </div>
-                        <p className="text-[11px] text-zinc-400 leading-relaxed italic">{hint}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-zinc-800 bg-[#0c0c0e]">
-            {isCompleted ? (
-              <Button disabled className="w-full bg-emerald-600/20 text-emerald-500 border border-emerald-600/20 h-10">
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Task Completed
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleVerifyTask} 
-                disabled={isVerifying}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 h-10 font-bold text-xs uppercase tracking-widest"
-              >
-                {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                {isVerifying ? 'Verifying...' : 'Verify Changes'}
-              </Button>
-            )}
-          </div>
+          )}
+          <RightSidePanel
+            task={task}
+            isCompleted={isCompleted}
+            isVerifying={isVerifying}
+            onVerifyTask={handleVerifyTask}
+            gitStatus={gitStatus}
+            gitCommits={gitCommits}
+            gitLoading={gitLoading}
+            commitGraph={commitGraph}
+            commitBranches={commitBranches}
+            branches={branches}
+            conflicts={conflicts}
+            onPull={handlePull}
+            onPush={handlePush}
+            onGitRefresh={refreshGitData}
+            onStage={handleStage}
+            onUnstage={handleUnstage}
+            onViewDiff={handleViewDiff}
+            onCreateBranch={handleCreateBranch}
+            onCheckoutBranch={handleCheckoutBranch}
+            onDeleteBranch={handleDeleteBranch}
+            onResolveConflict={handleResolveConflict}
+            onGetConflictContent={handleGetConflictContent}
+            onWriteFile={handleWriteFileForConflict}
+            onMerge={handleMerge}
+            onAbortMerge={handleAbortMerge}
+            onCommitClick={(sha) => {
+              setOutput(`Selected commit: ${sha.slice(0, 7)}`)
+            }}
+            onResetToCommit={handleResetToCommit}
+            workspaceId={workspaceId}
+            projectId={projectId}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
       </div>

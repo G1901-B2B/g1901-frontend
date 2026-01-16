@@ -13,6 +13,7 @@ export interface GitStatusResponse {
   modified?: string[]
   staged?: string[]
   untracked?: string[]
+  deleted?: string[]
   conflicts?: string[]
   raw?: string
 }
@@ -488,6 +489,27 @@ export async function abortMerge(
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Failed to abort merge' }))
     throw new Error(error.detail || 'Failed to abort merge')
+  }
+  return res.json()
+}
+
+export async function resetToCommit(
+  workspaceId: string,
+  token: string,
+  commit: string,
+  hard = true
+): Promise<{ success: boolean; output?: string }> {
+  const res = await fetch(`${API_BASE}/api/git/${workspaceId}/reset`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ commit, hard }),
+  })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Failed to reset to commit' }))
+    throw new Error(error.detail || 'Failed to reset to commit')
   }
   return res.json()
 }

@@ -1,22 +1,28 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { GitBranch, Plus, Trash2, Check, Loader2, X } from 'lucide-react'
-import type { BranchInfo } from '../../lib/api-git'
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { GitBranch, Plus, Trash2, Check, Loader2 } from "lucide-react";
+import type { BranchInfo } from "../../lib/api-git";
 
 interface BranchManagementProps {
-  branches: BranchInfo[]
-  currentBranch?: string
-  onCreateBranch: (name: string, startPoint?: string) => Promise<void>
-  onCheckoutBranch: (name: string, create?: boolean) => Promise<void>
-  onDeleteBranch: (name: string, force?: boolean) => Promise<void>
-  isLoading?: boolean
+  branches: BranchInfo[];
+  currentBranch?: string;
+  onCreateBranch: (name: string, startPoint?: string) => Promise<void>;
+  onCheckoutBranch: (name: string, create?: boolean) => Promise<void>;
+  onDeleteBranch: (name: string, force?: boolean) => Promise<void>;
+  isLoading?: boolean;
 }
 
 export default function BranchManagement({
@@ -25,55 +31,60 @@ export default function BranchManagement({
   onCreateBranch,
   onCheckoutBranch,
   onDeleteBranch,
-  isLoading = false
+  isLoading = false,
 }: BranchManagementProps) {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [newBranchName, setNewBranchName] = useState('')
-  const [startPoint, setStartPoint] = useState('')
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [branchToDelete, setBranchToDelete] = useState<string | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
+  const [startPoint, setStartPoint] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCreateBranch = async () => {
-    if (!newBranchName.trim()) return
-    setIsCreating(true)
+    if (!newBranchName.trim()) return;
+    setIsCreating(true);
     try {
-      await onCreateBranch(newBranchName.trim(), startPoint.trim() || undefined)
-      setCreateDialogOpen(false)
-      setNewBranchName('')
-      setStartPoint('')
+      await onCreateBranch(
+        newBranchName.trim(),
+        startPoint.trim() || undefined
+      );
+      setCreateDialogOpen(false);
+      setNewBranchName("");
+      setStartPoint("");
     } catch (err) {
-      console.error('Failed to create branch:', err)
+      console.error("Failed to create branch:", err);
     } finally {
-      setIsCreating(false)
+      setIsCreating(false);
     }
-  }
+  };
 
   const handleDeleteBranch = async (force = false) => {
-    if (!branchToDelete) return
-    
+    if (!branchToDelete) return;
+
     // Prevent deleting current branch
     if (branchToDelete === currentBranch) {
-      alert(`Cannot delete the current branch "${branchToDelete}". Please switch to another branch first.`)
-      setDeleteDialogOpen(false)
-      setBranchToDelete(null)
-      return
+      alert(
+        `Cannot delete the current branch "${branchToDelete}". Please switch to another branch first.`
+      );
+      setDeleteDialogOpen(false);
+      setBranchToDelete(null);
+      return;
     }
-    
-    setIsDeleting(true)
+
+    setIsDeleting(true);
     try {
-      await onDeleteBranch(branchToDelete, force)
-      setDeleteDialogOpen(false)
-      setBranchToDelete(null)
+      await onDeleteBranch(branchToDelete, force);
+      setDeleteDialogOpen(false);
+      setBranchToDelete(null);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-      alert(`Failed to delete branch: ${errorMsg}`)
-      console.error('Failed to delete branch:', err)
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      alert(`Failed to delete branch: ${errorMsg}`);
+      console.error("Failed to delete branch:", err);
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   return (
     <>
@@ -99,19 +110,24 @@ export default function BranchManagement({
           <ScrollArea className="h-[300px]">
             <div className="p-3 space-y-1">
               {branches.length === 0 ? (
-                <div className="text-zinc-500 text-sm p-4 text-center">No branches found</div>
+                <div className="text-zinc-500 text-sm p-4 text-center">
+                  No branches found
+                </div>
               ) : (
                 branches.map((branch) => (
                   <div
                     key={branch.name}
                     className={`
                       flex items-center justify-between p-2 rounded hover:bg-zinc-800/50
-                      ${branch.current ? 'bg-blue-500/10 border border-blue-500/30' : ''}
+                      ${branch.current ? "bg-blue-500/10 border border-blue-500/30" : ""}
                     `}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {branch.current && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-blue-400 border-blue-500/30">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 py-0 text-blue-400 border-blue-500/30"
+                        >
                           Current
                         </Badge>
                       )}
@@ -136,8 +152,8 @@ export default function BranchManagement({
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              setBranchToDelete(branch.name)
-                              setDeleteDialogOpen(true)
+                              setBranchToDelete(branch.name);
+                              setDeleteDialogOpen(true);
                             }}
                             disabled={isLoading}
                             className="h-6 w-6 text-zinc-500 hover:text-red-400"
@@ -173,8 +189,8 @@ export default function BranchManagement({
                 placeholder="feature/new-feature"
                 className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newBranchName.trim()) {
-                    handleCreateBranch()
+                  if (e.key === "Enter" && newBranchName.trim()) {
+                    handleCreateBranch();
                   }
                 }}
               />
@@ -210,7 +226,7 @@ export default function BranchManagement({
                   Creating...
                 </>
               ) : (
-                'Create'
+                "Create"
               )}
             </Button>
           </DialogFooter>
@@ -225,15 +241,18 @@ export default function BranchManagement({
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-zinc-300">
-              Are you sure you want to delete branch <span className="font-mono text-blue-400">{branchToDelete}</span>?
+              Are you sure you want to delete branch{" "}
+              <span className="font-mono text-blue-400">{branchToDelete}</span>?
             </p>
             {branchToDelete === currentBranch ? (
               <p className="text-xs text-red-400">
-                ⚠️ Cannot delete the current branch. Switch to another branch first.
+                ⚠️ Cannot delete the current branch. Switch to another branch
+                first.
               </p>
             ) : (
               <p className="text-xs text-zinc-500">
-                This action cannot be undone. Use force delete if the branch is not merged.
+                This action cannot be undone. Use force delete if the branch is
+                not merged.
               </p>
             )}
           </div>
@@ -264,12 +283,12 @@ export default function BranchManagement({
                   Deleting...
                 </>
               ) : (
-                'Force Delete'
+                "Force Delete"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

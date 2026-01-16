@@ -3,38 +3,38 @@
  * Functions for interacting with workspace file system and container management.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Types
 
 export interface FileItem {
-  name: string
-  path: string
-  is_directory: boolean
-  size: number
-  permissions: string
+  name: string;
+  path: string;
+  is_directory: boolean;
+  size: number;
+  permissions: string;
 }
 
 export interface ListFilesResponse {
-  success: boolean
-  path: string
-  files: FileItem[]
+  success: boolean;
+  path: string;
+  files: FileItem[];
 }
 
 export interface ReadFileResponse {
-  success: boolean
-  path: string
-  content: string
+  success: boolean;
+  path: string;
+  content: string;
 }
 
 export interface WorkspaceInfo {
-  workspace_id: string
-  user_id: string
-  project_id: string
-  container_id: string
-  container_status: string
-  created_at: string
-  last_active_at: string
+  workspace_id: string;
+  user_id: string;
+  project_id: string;
+  container_id: string;
+  container_status: string;
+  created_at: string;
+  last_active_at: string;
 }
 
 // Workspace Management
@@ -44,43 +44,50 @@ export async function createWorkspace(
   token: string
 ): Promise<{ success: boolean; workspace: WorkspaceInfo }> {
   const response = await fetch(`${API_BASE}/api/workspaces/create`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ project_id: projectId }),
-  })
+  });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create workspace' }))
-    throw new Error(error.detail || 'Failed to create workspace')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to create workspace" }));
+    throw new Error(error.detail || "Failed to create workspace");
   }
 
-  return response.json()
+  return response.json();
 }
 
 export async function getWorkspaceByProject(
   projectId: string,
   token: string
 ): Promise<{ success: boolean; workspace: WorkspaceInfo | null }> {
-  const response = await fetch(`${API_BASE}/api/workspaces/project/${projectId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/project/${projectId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   if (response.status === 404) {
-    return { success: true, workspace: null }
+    return { success: true, workspace: null };
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to get workspace' }))
-    throw new Error(error.detail || 'Failed to get workspace')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to get workspace" }));
+    throw new Error(error.detail || "Failed to get workspace");
   }
 
-  return response.json()
+  return response.json();
 }
 
 export async function getOrCreateWorkspace(
@@ -88,62 +95,72 @@ export async function getOrCreateWorkspace(
   token: string
 ): Promise<WorkspaceInfo> {
   // Try to get existing workspace first
-  const existing = await getWorkspaceByProject(projectId, token)
-  
+  const existing = await getWorkspaceByProject(projectId, token);
+
   if (existing.workspace) {
     // If container is not running, start it
-    if (existing.workspace.container_status !== 'running') {
-      await startWorkspace(existing.workspace.workspace_id, token)
+    if (existing.workspace.container_status !== "running") {
+      await startWorkspace(existing.workspace.workspace_id, token);
       // Refresh to get updated status
-      const refreshed = await getWorkspaceByProject(projectId, token)
+      const refreshed = await getWorkspaceByProject(projectId, token);
       if (refreshed.workspace) {
-        return refreshed.workspace
+        return refreshed.workspace;
       }
     }
-    return existing.workspace
+    return existing.workspace;
   }
 
   // Create new workspace
-  const created = await createWorkspace(projectId, token)
-  return created.workspace
+  const created = await createWorkspace(projectId, token);
+  return created.workspace;
 }
 
 export async function startWorkspace(
   workspaceId: string,
   token: string
 ): Promise<{ success: boolean }> {
-  const response = await fetch(`${API_BASE}/api/workspaces/${workspaceId}/start`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/start`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to start workspace' }))
-    throw new Error(error.detail || 'Failed to start workspace')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to start workspace" }));
+    throw new Error(error.detail || "Failed to start workspace");
   }
 
-  return response.json()
+  return response.json();
 }
 
 export async function stopWorkspace(
   workspaceId: string,
   token: string
 ): Promise<{ success: boolean }> {
-  const response = await fetch(`${API_BASE}/api/workspaces/${workspaceId}/stop`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  const response = await fetch(
+    `${API_BASE}/api/workspaces/${workspaceId}/stop`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to stop workspace' }))
-    throw new Error(error.detail || 'Failed to stop workspace')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to stop workspace" }));
+    throw new Error(error.detail || "Failed to stop workspace");
   }
 
-  return response.json()
+  return response.json();
 }
 
 // File System Operations
@@ -153,24 +170,26 @@ export async function listFiles(
   path: string,
   token: string
 ): Promise<FileItem[]> {
-  const params = new URLSearchParams({ path })
+  const params = new URLSearchParams({ path });
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files?${params}`,
     {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     }
-  )
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to list files' }))
-    throw new Error(error.detail || 'Failed to list files')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to list files" }));
+    throw new Error(error.detail || "Failed to list files");
   }
 
-  const data: ListFilesResponse = await response.json()
-  return data.files
+  const data: ListFilesResponse = await response.json();
+  return data.files;
 }
 
 export async function readFile(
@@ -178,27 +197,29 @@ export async function readFile(
   filePath: string,
   token: string
 ): Promise<string> {
-  const params = new URLSearchParams({ path: filePath })
+  const params = new URLSearchParams({ path: filePath });
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files/content?${params}`,
     {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     }
-  )
+  );
 
   if (!response.ok) {
     if (response.status === 404) {
-      throw new Error('File not found. It may have been deleted.')
+      throw new Error("File not found. It may have been deleted.");
     }
-    const error = await response.json().catch(() => ({ detail: 'Failed to read file' }))
-    throw new Error(error.detail || 'Failed to read file')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to read file" }));
+    throw new Error(error.detail || "Failed to read file");
   }
 
-  const data: ReadFileResponse = await response.json()
-  return data.content
+  const data: ReadFileResponse = await response.json();
+  return data.content;
 }
 
 export async function writeFile(
@@ -210,18 +231,20 @@ export async function writeFile(
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files/content`,
     {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ path: filePath, content }),
     }
-  )
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to write file' }))
-    throw new Error(error.detail || 'Failed to write file')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to write file" }));
+    throw new Error(error.detail || "Failed to write file");
   }
 }
 
@@ -234,18 +257,20 @@ export async function createFile(
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ path: filePath, is_directory: isDirectory }),
     }
-  )
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create file' }))
-    throw new Error(error.detail || 'Failed to create file')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to create file" }));
+    throw new Error(error.detail || "Failed to create file");
   }
 }
 
@@ -254,20 +279,22 @@ export async function deleteFile(
   filePath: string,
   token: string
 ): Promise<void> {
-  const params = new URLSearchParams({ path: filePath })
+  const params = new URLSearchParams({ path: filePath });
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files?${params}`,
     {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     }
-  )
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to delete file' }))
-    throw new Error(error.detail || 'Failed to delete file')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to delete file" }));
+    throw new Error(error.detail || "Failed to delete file");
   }
 }
 
@@ -280,29 +307,31 @@ export async function renameFile(
   const response = await fetch(
     `${API_BASE}/api/workspaces/${workspaceId}/files/rename`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
     }
-  )
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to rename file' }))
-    throw new Error(error.detail || 'Failed to rename file')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to rename file" }));
+    throw new Error(error.detail || "Failed to rename file");
   }
 }
 
 // Terminal Session Types
 
 export interface TerminalSession {
-  session_id: string
-  workspace_id: string
-  name: string
-  is_active: boolean
-  created_at: string
+  session_id: string;
+  workspace_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export async function createTerminalSession(
@@ -311,57 +340,68 @@ export async function createTerminalSession(
   token: string
 ): Promise<TerminalSession> {
   const response = await fetch(`${API_BASE}/api/terminal/sessions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ workspace_id: workspaceId, name }),
-  })
+  });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create terminal session' }))
-    throw new Error(error.detail || 'Failed to create terminal session')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to create terminal session" }));
+    throw new Error(error.detail || "Failed to create terminal session");
   }
 
-  const data = await response.json()
-  return data.session
+  const data = await response.json();
+  return data.session;
 }
 
 export async function listTerminalSessions(
   workspaceId: string,
   token: string
 ): Promise<TerminalSession[]> {
-  const response = await fetch(`${API_BASE}/api/terminal/sessions/${workspaceId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  const response = await fetch(
+    `${API_BASE}/api/terminal/sessions/${workspaceId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to list terminal sessions' }))
-    throw new Error(error.detail || 'Failed to list terminal sessions')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to list terminal sessions" }));
+    throw new Error(error.detail || "Failed to list terminal sessions");
   }
 
-  const data = await response.json()
-  return data.sessions
+  const data = await response.json();
+  return data.sessions;
 }
 
 export async function deleteTerminalSession(
   sessionId: string,
   token: string
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/terminal/sessions/${sessionId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  const response = await fetch(
+    `${API_BASE}/api/terminal/sessions/${sessionId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to delete terminal session' }))
-    throw new Error(error.detail || 'Failed to delete terminal session')
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to delete terminal session" }));
+    throw new Error(error.detail || "Failed to delete terminal session");
   }
 }
-

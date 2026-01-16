@@ -1,41 +1,41 @@
-'use client'
+"use client";
 
-import { getAuthHeadersClient } from './api-client'
+import { getAuthHeadersClient } from "./api-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface RoadmapContext {
-  day_number?: number | null
-  day_theme?: string | null
-  concept_title?: string | null
-  subconcept_title?: string | null
+  day_number?: number | null;
+  day_theme?: string | null;
+  concept_title?: string | null;
+  subconcept_title?: string | null;
 }
 
 export interface ChatRequest {
-  message: string
-  conversation_history: ChatMessage[]
-  roadmap_context?: RoadmapContext | null
+  message: string;
+  conversation_history: ChatMessage[];
+  roadmap_context?: RoadmapContext | null;
 }
 
 export interface ChatResponse {
-  response: string
+  response: string;
   chunks_used: Array<{
-    chunk_id: string
-    file_path: string
-    chunk_index: number
-    language: string
-    score: number
-  }>
+    chunk_id: string;
+    file_path: string;
+    chunk_index: number;
+    language: string;
+    score: number;
+  }>;
 }
 
 /**
  * Send a chat message to the chatbot API
- * 
+ *
  * @param projectId - UUID of the project to chat about
  * @param message - User's message
  * @param conversationHistory - Previous conversation messages
@@ -51,38 +51,37 @@ export async function sendChatMessage(
 ): Promise<ChatResponse> {
   try {
     if (!token) {
-      throw new Error('Authentication required')
+      throw new Error("Authentication required");
     }
 
-    const headers = getAuthHeadersClient(token)
-    
+    const headers = getAuthHeadersClient(token);
+
     const requestBody: ChatRequest = {
       message,
       conversation_history: conversationHistory,
       roadmap_context: roadmapContext || null,
-    }
-    
+    };
+
     const response = await fetch(`${API_URL}/api/chatbot/${projectId}/chat`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(requestBody),
-    })
-    
+    });
+
     if (!response.ok) {
-      let errorMessage = `Failed to send message (${response.status})`
+      let errorMessage = `Failed to send message (${response.status})`;
       try {
-        const error = await response.json()
-        errorMessage = error.detail || error.message || errorMessage
+        const error = await response.json();
+        errorMessage = error.detail || error.message || errorMessage;
       } catch {
-        errorMessage = response.statusText || errorMessage
+        errorMessage = response.statusText || errorMessage;
       }
-      throw new Error(errorMessage)
+      throw new Error(errorMessage);
     }
-    
-    return await response.json()
+
+    return await response.json();
   } catch (error) {
-    console.error('Failed to send chat message:', error)
-    throw error
+    console.error("Failed to send chat message:", error);
+    throw error;
   }
 }
-

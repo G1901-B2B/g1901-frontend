@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, Minus, FileText, Eye, X } from 'lucide-react'
-import type { GitStatusResponse } from '../../lib/api-git'
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Minus, FileText, Eye } from "lucide-react";
+import type { GitStatusResponse } from "../../lib/api-git";
 
 interface StagingAreaProps {
-  status: GitStatusResponse | null
-  onStage: (files?: string[]) => Promise<void>
-  onUnstage: (files?: string[]) => Promise<void>
-  onViewDiff?: (filePath: string, staged: boolean) => void
-  isLoading?: boolean
+  status: GitStatusResponse | null;
+  onStage: (files?: string[]) => Promise<void>;
+  onUnstage: (files?: string[]) => Promise<void>;
+  onViewDiff?: (filePath: string, staged: boolean) => void;
+  isLoading?: boolean;
 }
 
 export default function StagingArea({
@@ -20,41 +20,46 @@ export default function StagingArea({
   onStage,
   onUnstage,
   onViewDiff,
-  isLoading = false
+  isLoading = false,
 }: StagingAreaProps) {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  const stagedFiles = status?.staged || []
-  const deletedFiles = status?.deleted || []
+  const stagedFiles = status?.staged || [];
+  const deletedFiles = status?.deleted || [];
   const unstagedFiles = [
-    ...(status?.modified || []).filter(f => !stagedFiles.includes(f) && !deletedFiles.includes(f)),
+    ...(status?.modified || []).filter(
+      (f) => !stagedFiles.includes(f) && !deletedFiles.includes(f)
+    ),
     ...(status?.untracked || []),
-    ...deletedFiles.filter(f => !stagedFiles.includes(f))
-  ]
+    ...deletedFiles.filter((f) => !stagedFiles.includes(f)),
+  ];
 
   const handleStage = async (file?: string) => {
-    await onStage(file ? [file] : undefined)
-    setSelectedFile(null)
-  }
+    await onStage(file ? [file] : undefined);
+    setSelectedFile(null);
+  };
 
   const handleUnstage = async (file?: string) => {
-    await onUnstage(file ? [file] : undefined)
-    setSelectedFile(null)
-  }
+    await onUnstage(file ? [file] : undefined);
+    setSelectedFile(null);
+  };
 
   const handleViewDiff = (filePath: string, staged: boolean) => {
-    setSelectedFile(filePath)
+    setSelectedFile(filePath);
     if (onViewDiff) {
-      onViewDiff(filePath, staged)
+      onViewDiff(filePath, staged);
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
       {/* Staged Files Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-[10px] uppercase tracking-widest text-emerald-400 border-emerald-500/20">
+          <Badge
+            variant="outline"
+            className="text-[10px] uppercase tracking-widest text-emerald-400 border-emerald-500/20"
+          >
             Staged ({stagedFiles.length})
           </Badge>
           {stagedFiles.length > 0 && (
@@ -72,21 +77,32 @@ export default function StagingArea({
         <ScrollArea className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50">
           <div className="p-2">
             {stagedFiles.length === 0 ? (
-              <div className="p-3 text-[11px] text-zinc-600 text-center">No staged files</div>
+              <div className="p-3 text-[11px] text-zinc-600 text-center">
+                No staged files
+              </div>
             ) : (
               <div className="space-y-1">
                 {stagedFiles.map((file) => (
                   <div
                     key={file}
                     className={`flex items-center justify-between p-1.5 rounded hover:bg-zinc-800/50 ${
-                      selectedFile === file ? 'bg-zinc-800' : ''
+                      selectedFile === file ? "bg-zinc-800" : ""
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <FileText className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? 'text-red-500' : 'text-emerald-400'}`} />
-                      <span className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? 'text-red-400 line-through' : 'text-zinc-300'}`}>{file}</span>
+                      <FileText
+                        className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? "text-red-500" : "text-emerald-400"}`}
+                      />
+                      <span
+                        className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
+                      >
+                        {file}
+                      </span>
                       {status?.deleted?.includes(file) && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0"
+                        >
                           Deleted
                         </Badge>
                       )}
@@ -125,7 +141,10 @@ export default function StagingArea({
       {/* Unstaged Files Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-[10px] uppercase tracking-widest text-yellow-500 border-yellow-500/20">
+          <Badge
+            variant="outline"
+            className="text-[10px] uppercase tracking-widest text-yellow-500 border-yellow-500/20"
+          >
             Unstaged ({unstagedFiles.length})
           </Badge>
           {unstagedFiles.length > 0 && (
@@ -143,26 +162,40 @@ export default function StagingArea({
         <ScrollArea className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50">
           <div className="p-2">
             {unstagedFiles.length === 0 ? (
-              <div className="p-3 text-[11px] text-zinc-600 text-center">No unstaged files</div>
+              <div className="p-3 text-[11px] text-zinc-600 text-center">
+                No unstaged files
+              </div>
             ) : (
               <div className="space-y-1">
                 {unstagedFiles.map((file) => (
                   <div
                     key={file}
                     className={`flex items-center justify-between p-1.5 rounded hover:bg-zinc-800/50 ${
-                      selectedFile === file ? 'bg-zinc-800' : ''
+                      selectedFile === file ? "bg-zinc-800" : ""
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <FileText className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? 'text-red-500' : 'text-yellow-500'}`} />
-                      <span className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? 'text-red-400 line-through' : 'text-zinc-300'}`}>{file}</span>
+                      <FileText
+                        className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? "text-red-500" : "text-yellow-500"}`}
+                      />
+                      <span
+                        className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
+                      >
+                        {file}
+                      </span>
                       {status?.untracked?.includes(file) && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-zinc-500 border-zinc-700 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 py-0 text-zinc-500 border-zinc-700 shrink-0"
+                        >
                           New
                         </Badge>
                       )}
                       {status?.deleted?.includes(file) && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 shrink-0"
+                        >
                           Deleted
                         </Badge>
                       )}
@@ -198,5 +231,5 @@ export default function StagingArea({
         </ScrollArea>
       </div>
     </div>
-  )
+  );
 }

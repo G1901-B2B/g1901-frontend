@@ -35,5 +35,3 @@ describe("Header", () => {
     expect(screen.getByText("GitGuide")).toBeInTheDocument();
   });
 });
-
-

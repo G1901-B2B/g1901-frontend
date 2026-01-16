@@ -1,20 +1,27 @@
-"use client"
+"use client";
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface UncommittedChangesDialogProps {
-  open: boolean
-  files: string[]
-  onClose: () => void
-  onAction: (action: 'commit' | 'stash' | 'discard' | 'cancel') => void
+  open: boolean;
+  files: string[];
+  onClose: () => void;
+  onAction: (action: "commit" | "stash" | "discard" | "cancel") => void;
 }
 
 export default function UncommittedChangesDialog({
   open,
   files,
   onClose,
-  onAction
+  onAction,
 }: UncommittedChangesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
@@ -28,25 +35,42 @@ export default function UncommittedChangesDialog({
 
         <div className="text-[11px] text-zinc-500 space-y-1 max-h-40 overflow-y-auto">
           {files.map((file) => (
-            <div key={file} className="font-mono truncate">{file}</div>
+            <div key={file} className="font-mono truncate">
+              {file}
+            </div>
           ))}
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={() => onAction('cancel')} className="text-zinc-400">
+          <Button
+            variant="ghost"
+            onClick={() => onAction("cancel")}
+            className="text-zinc-400"
+          >
             Cancel
           </Button>
-          <Button variant="outline" onClick={() => onAction('stash')} className="border-zinc-700">
+          <Button
+            variant="outline"
+            onClick={() => onAction("stash")}
+            className="border-zinc-700"
+          >
             Stash
           </Button>
-          <Button variant="outline" onClick={() => onAction('discard')} className="border-red-500/30 text-red-400 hover:text-red-300">
+          <Button
+            variant="outline"
+            onClick={() => onAction("discard")}
+            className="border-red-500/30 text-red-400 hover:text-red-300"
+          >
             Discard
           </Button>
-          <Button onClick={() => onAction('commit')} className="bg-blue-600 hover:bg-blue-500">
+          <Button
+            onClick={() => onAction("commit")}
+            className="bg-blue-600 hover:bg-blue-500"
+          >
             Auto-Commit
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

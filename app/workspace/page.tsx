@@ -1,5 +1,5 @@
-import { Suspense } from 'react'
-import WorkspaceClient from './WorkspaceClient'
+import { Suspense } from "react";
+import WorkspaceClient from "./WorkspaceClient";
 
 export default function WorkspacePage() {
   return (
@@ -12,6 +12,5 @@ export default function WorkspacePage() {
     >
       <WorkspaceClient />
     </Suspense>
-  )
+  );
 }
-

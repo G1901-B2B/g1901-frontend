@@ -1,117 +1,168 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRoadmap, useDayDetails, useConceptDetails } from '../../hooks/useRoadmap'
-import { useProgress } from '../../hooks/useProgress'
-import DayCardsStrip from './DayCardsStrip'
-import KanbanBoard from './KanbanBoard'
-import ChatbotWidget from '../chatbot/ChatbotWidget'
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useRoadmap,
+  useDayDetails,
+  useConceptDetails,
+} from "../../hooks/useRoadmap";
+import { useProgress } from "../../hooks/useProgress";
+import DayCardsStrip from "./DayCardsStrip";
+import KanbanBoard from "./KanbanBoard";
+import ChatbotWidget from "../chatbot/ChatbotWidget";
 
 interface RoadmapPageProps {
-  projectId: string
+  projectId: string;
 }
 
 export default function RoadmapPage({ projectId }: RoadmapPageProps) {
-  const { days, loading: roadmapLoading, error: roadmapError, generationStatus } = useRoadmap(projectId)
-  const { 
-    progress, 
-    current, 
+  const {
+    days,
+    loading: roadmapLoading,
+    error: roadmapError,
+    generationStatus,
+  } = useRoadmap(projectId);
+  const {
+    progress,
+    current,
     loading: progressLoading,
     refetch: refetchProgress,
     startConcept: startConceptProgress,
     completeConcept: completeConceptProgress,
-  } = useProgress(projectId)
-  
+  } = useProgress(projectId);
+
   // Refresh progress when component becomes visible (user navigates back to roadmap)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        refetchProgress()
+        refetchProgress();
       }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [refetchProgress])
-  
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [refetchProgress]);
+
   // Also refresh progress periodically to catch Day 0 completion
   useEffect(() => {
     const interval = setInterval(() => {
-      refetchProgress()
-    }, 5000) // Refresh every 5 seconds
-    return () => clearInterval(interval)
-  }, [refetchProgress])
-  
-  const [selectedDayId, setSelectedDayId] = useState<string | null>(null)
-  const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null)
-  
-  const { dayDetails, loading: dayDetailsLoading } = useDayDetails(projectId, selectedDayId)
-  const { conceptDetails, loading: conceptDetailsLoading } = useConceptDetails(projectId, selectedConceptId)
+      refetchProgress();
+    }, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
+  }, [refetchProgress]);
 
-  // Set initial day when days load
-  useEffect(() => {
-    if (days.length > 0 && !selectedDayId) {
-      const currentDay = current?.current_day
+  // Compute initial day ID
+  const getInitialDayId = useCallback(() => {
+    if (days.length > 0) {
+      const currentDay = current?.current_day;
       if (currentDay) {
-        setSelectedDayId(currentDay.day_id)
+        return currentDay.day_id;
       } else {
-        const firstGenerated = days.find(d => d.generated_status === 'generated')
+        const firstGenerated = days.find(
+          (d) => d.generated_status === "generated"
+        );
         if (firstGenerated) {
-          setSelectedDayId(firstGenerated.day_id)
+          return firstGenerated.day_id;
         } else {
-          setSelectedDayId(days[0].day_id)
+          return days[0].day_id;
         }
       }
     }
-  }, [days, current, selectedDayId])
-  
-  // Set current concept when day changes
+    return null;
+  }, [days, current]);
+
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(() =>
+    getInitialDayId()
+  );
+
+  // Sync selectedDayId when days/current change (only if not set by user)
+  const prevDaysLength = useRef(days.length);
   useEffect(() => {
-    if (dayDetails && dayDetails.concepts.length > 0 && !selectedConceptId) {
-      const currentConcept = current?.current_concept
+    if (days.length > 0 && days.length !== prevDaysLength.current) {
+      const newDayId = getInitialDayId();
+      if (newDayId && !selectedDayId) {
+        setSelectedDayId(newDayId);
+      }
+    }
+    prevDaysLength.current = days.length;
+  }, [days.length, getInitialDayId, selectedDayId]);
+
+  const { dayDetails } = useDayDetails(projectId, selectedDayId);
+  const { conceptDetails, loading: conceptDetailsLoading } = useConceptDetails(
+    projectId,
+    selectedConceptId
+  );
+
+  // Compute initial concept ID
+  const getInitialConceptId = useCallback(() => {
+    if (dayDetails && dayDetails.concepts.length > 0) {
+      const currentConcept = current?.current_concept;
       if (currentConcept) {
-        setSelectedConceptId(currentConcept.concept_id)
+        return currentConcept.concept_id;
       } else {
-        setSelectedConceptId(dayDetails.concepts[0].concept_id)
+        return dayDetails.concepts[0].concept_id;
       }
     }
-  }, [dayDetails, current, selectedConceptId])
-  
+    return null;
+  }, [dayDetails, current]);
+
+  const [selectedConceptId, setSelectedConceptId] = useState<string | null>(
+    () => getInitialConceptId()
+  );
+
+  // Sync selectedConceptId when dayDetails/current change (only if not set by user)
+  const prevDayDetailsConceptsLength = useRef(dayDetails?.concepts.length ?? 0);
+  useEffect(() => {
+    if (
+      dayDetails &&
+      dayDetails.concepts.length > 0 &&
+      dayDetails.concepts.length !== prevDayDetailsConceptsLength.current
+    ) {
+      const newConceptId = getInitialConceptId();
+      if (newConceptId && !selectedConceptId) {
+        setSelectedConceptId(newConceptId);
+      }
+    }
+    prevDayDetailsConceptsLength.current = dayDetails?.concepts.length ?? 0;
+  }, [dayDetails, getInitialConceptId, selectedConceptId]);
+
   const handleConceptClick = (conceptId: string) => {
-    setSelectedConceptId(conceptId)
-    const conceptProgress = progress?.concept_progress[conceptId]
-    if (!conceptProgress || conceptProgress.progress_status === 'todo') {
-      startConceptProgress(conceptId).catch(console.error)
+    setSelectedConceptId(conceptId);
+    const conceptProgress = progress?.concept_progress[conceptId];
+    if (!conceptProgress || conceptProgress.progress_status === "todo") {
+      startConceptProgress(conceptId).catch(console.error);
     }
-  }
-  
+  };
+
   const handleStartConcept = async (conceptId: string) => {
-    await startConceptProgress(conceptId)
-  }
-  
+    await startConceptProgress(conceptId);
+  };
+
   const handleCompleteConcept = async (conceptId: string) => {
-    await completeConceptProgress(conceptId)
+    await completeConceptProgress(conceptId);
     if (dayDetails) {
-      const currentIndex = dayDetails.concepts.findIndex(c => c.concept_id === conceptId)
+      const currentIndex = dayDetails.concepts.findIndex(
+        (c) => c.concept_id === conceptId
+      );
       if (currentIndex < dayDetails.concepts.length - 1) {
-        setSelectedConceptId(dayDetails.concepts[currentIndex + 1].concept_id)
+        setSelectedConceptId(dayDetails.concepts[currentIndex + 1].concept_id);
       }
     }
-  }
-  
+  };
+
   // Build progress maps
-  const dayProgressMap = progress?.day_progress || {}
-  const conceptProgressMap = progress?.concept_progress || {}
-  const taskProgressMap = progress?.task_progress || {}
-  
-  
+  const dayProgressMap = progress?.day_progress || {};
+  const conceptProgressMap = progress?.concept_progress || {};
+  const taskProgressMap = progress?.task_progress || {};
+
   // Get roadmap context for chatbot
   const roadmapContext = {
     day_number: dayDetails?.day.day_number ?? null,
     day_theme: dayDetails?.day.theme ?? null,
     concept_title: conceptDetails?.concept.title ?? null,
     subconcept_title: null,
-  }
-  
+  };
+
   if (roadmapLoading || progressLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -120,17 +171,17 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
           <p className="text-zinc-400">Loading roadmap...</p>
         </div>
       </div>
-    )
+    );
   }
-  
+
   if (roadmapError) {
     return (
       <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-6">
         <p className="text-red-300">{roadmapError}</p>
       </div>
-    )
+    );
   }
-  
+
   if (days.length === 0) {
     return (
       <div className="text-center py-12">
@@ -139,9 +190,9 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
           <p className="text-blue-400 text-sm">Roadmap is being generated...</p>
         )}
       </div>
-    )
+    );
   }
-  
+
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
@@ -154,7 +205,7 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
             progressMap={dayProgressMap}
           />
         </div>
-        
+
         {/* Kanban Board */}
         <div className="flex-1 min-h-0 h-full">
           {dayDetails && (
@@ -174,12 +225,9 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
           )}
         </div>
       </div>
-      
+
       {/* Floating Chatbot Widget */}
-      <ChatbotWidget 
-        projectId={projectId}
-        roadmapContext={roadmapContext}
-      />
+      <ChatbotWidget projectId={projectId} roadmapContext={roadmapContext} />
     </>
-  )
+  );
 }

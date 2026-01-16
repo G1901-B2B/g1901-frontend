@@ -12,20 +12,22 @@ export default function Loading() {
                 <div className="h-9 bg-[#3f4449] rounded-lg w-28"></div>
               </div>
             </div>
-            
+
             {/* Title Skeleton */}
             <div className="h-7 bg-[#3f4449] rounded w-48 mb-6"></div>
-            
+
             {/* Project Cards Grid Skeleton */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="aspect-[4/3] bg-[#3f4449] rounded-xl"></div>
+                <div
+                  key={i}
+                  className="aspect-[4/3] bg-[#3f4449] rounded-xl"
+                ></div>
               ))}
             </div>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }
-

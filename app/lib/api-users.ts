@@ -1,6 +1,6 @@
-import { getAuthHeaders } from './api-auth'
+import { getAuthHeaders } from "./api-auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /**
  * Sync user from Clerk to Supabase
@@ -8,29 +8,29 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
  */
 export async function syncUser() {
   try {
-    const headers = await getAuthHeaders()
-    
+    const headers = await getAuthHeaders();
+
     const response = await fetch(`${API_URL}/api/users/sync`, {
-      method: 'POST',
+      method: "POST",
       headers,
-    })
-    
+    });
+
     if (!response.ok) {
-      let errorMessage = `Failed to sync user (${response.status})`
+      let errorMessage = `Failed to sync user (${response.status})`;
       try {
-        const error = await response.json()
-        errorMessage = error.detail || error.message || errorMessage
+        const error = await response.json();
+        errorMessage = error.detail || error.message || errorMessage;
       } catch {
         // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage
+        errorMessage = response.statusText || errorMessage;
       }
-      throw new Error(errorMessage)
+      throw new Error(errorMessage);
     }
-    
-    return await response.json()
+
+    return await response.json();
   } catch (error) {
-    console.error('Failed to sync user:', error)
-    throw error
+    console.error("Failed to sync user:", error);
+    throw error;
   }
 }
 
@@ -39,29 +39,28 @@ export async function syncUser() {
  */
 export async function getCurrentUser() {
   try {
-    const headers = await getAuthHeaders()
-    
+    const headers = await getAuthHeaders();
+
     const response = await fetch(`${API_URL}/api/users/me`, {
-      method: 'GET',
+      method: "GET",
       headers,
-    })
-    
+    });
+
     if (!response.ok) {
-      let errorMessage = `Failed to get user (${response.status})`
+      let errorMessage = `Failed to get user (${response.status})`;
       try {
-        const error = await response.json()
-        errorMessage = error.detail || error.message || errorMessage
+        const error = await response.json();
+        errorMessage = error.detail || error.message || errorMessage;
       } catch {
         // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage
+        errorMessage = response.statusText || errorMessage;
       }
-      throw new Error(errorMessage)
+      throw new Error(errorMessage);
     }
-    
-    return await response.json()
+
+    return await response.json();
   } catch (error) {
-    console.error('Failed to get user:', error)
-    throw error
+    console.error("Failed to get user:", error);
+    throw error;
   }
 }
-

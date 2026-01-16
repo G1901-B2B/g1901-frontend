@@ -1,6 +1,6 @@
-import { SignedIn, SignedOut } from '@clerk/nextjs'
-import Link from 'next/link'
-import Header from './components/Header'
+import { SignedIn, SignedOut } from "@clerk/nextjs";
+import Link from "next/link";
+import Header from "./components/Header";
 
 export default function Home() {
   return (
@@ -13,20 +13,21 @@ export default function Home() {
             <h1 className="text-[48px] leading-[1.1] font-semibold tracking-tight text-zinc-900 mb-6">
               Transform GitHub repositories into personalized learning journeys
             </h1>
-            
+
             <SignedOut>
               <p className="text-[17px] leading-relaxed text-zinc-600 mb-10 max-w-2xl">
-                AI-powered platform that turns any GitHub repository into an interactive tutorial. 
-                Get context-aware explanations, understand complex codebases, and learn at your own pace.
+                AI-powered platform that turns any GitHub repository into an
+                interactive tutorial. Get context-aware explanations, understand
+                complex codebases, and learn at your own pace.
               </p>
               <div className="flex gap-3">
-                <Link 
+                <Link
                   href="/sign-up"
                   className="px-5 py-2.5 text-[14px] font-medium text-white bg-zinc-900 rounded-md hover:bg-zinc-800 transition-all duration-200"
                 >
                   Get started
                 </Link>
-                <Link 
+                <Link
                   href="/sign-in"
                   className="px-5 py-2.5 text-[14px] font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:border-zinc-400 hover:bg-zinc-50 transition-all duration-200"
                 >
@@ -34,12 +35,13 @@ export default function Home() {
                 </Link>
               </div>
             </SignedOut>
-            
+
             <SignedIn>
               <p className="text-[17px] leading-relaxed text-zinc-600 mb-10">
-                Welcome back. Continue your learning journey with AI-powered repository analysis.
+                Welcome back. Continue your learning journey with AI-powered
+                repository analysis.
               </p>
-              <Link 
+              <Link
                 href="/dashboard"
                 className="inline-block px-5 py-2.5 text-[14px] font-medium text-white bg-zinc-900 rounded-md hover:bg-zinc-800 transition-all duration-200"
               >
@@ -57,7 +59,8 @@ export default function Home() {
                 Context-Aware Chat
               </h3>
               <p className="text-[14px] leading-relaxed text-zinc-600">
-                Ask questions about any part of the codebase. Get explanations that understand the full context.
+                Ask questions about any part of the codebase. Get explanations
+                that understand the full context.
               </p>
             </div>
             <div>
@@ -65,7 +68,8 @@ export default function Home() {
                 Interactive Learning
               </h3>
               <p className="text-[14px] leading-relaxed text-zinc-600">
-                Follow structured tutorials generated from the repository. Learn by doing, not just reading.
+                Follow structured tutorials generated from the repository. Learn
+                by doing, not just reading.
               </p>
             </div>
             <div>
@@ -73,12 +77,13 @@ export default function Home() {
                 Smart Analysis
               </h3>
               <p className="text-[14px] leading-relaxed text-zinc-600">
-                Automatically detects patterns, architecture decisions, and best practices in the code.
+                Automatically detects patterns, architecture decisions, and best
+                practices in the code.
               </p>
             </div>
           </div>
         </section>
       </main>
     </>
-  )
+  );
 }

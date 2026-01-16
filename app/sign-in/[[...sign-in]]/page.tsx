@@ -1,4 +1,4 @@
-import { SignIn } from '@clerk/nextjs'
+import { SignIn } from "@clerk/nextjs";
 
 export default function SignInPage() {
   return (
@@ -14,7 +14,7 @@ export default function SignInPage() {
               Continue your learning journey
             </p>
           </div>
-          <SignIn 
+          <SignIn
             forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
@@ -22,12 +22,11 @@ export default function SignInPage() {
                 card: "shadow-none border border-zinc-200 rounded-lg",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
-              }
+              },
             }}
           />
         </div>
       </div>
     </div>
-  )
+  );
 }
-

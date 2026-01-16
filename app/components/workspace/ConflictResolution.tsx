@@ -1,20 +1,30 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, CheckCircle2, Loader2, FileText } from 'lucide-react'
-import MonacoEditor from './MonacoEditor'
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AlertTriangle, CheckCircle2, Loader2, FileText } from "lucide-react";
+import MonacoEditor from "./MonacoEditor";
 
 interface ConflictResolutionProps {
-  conflicts: string[]
-  onResolve: (filePath: string, side: 'ours' | 'theirs' | 'both', content?: string) => Promise<void>
-  onGetContent: (filePath: string) => Promise<string>
-  onWriteFile: (filePath: string, content: string) => Promise<void>
-  isLoading?: boolean
+  conflicts: string[];
+  onResolve: (
+    filePath: string,
+    side: "ours" | "theirs" | "both",
+    content?: string
+  ) => Promise<void>;
+  onGetContent: (filePath: string) => Promise<string>;
+  onWriteFile: (filePath: string, content: string) => Promise<void>;
+  isLoading?: boolean;
 }
 
 export default function ConflictResolution({
@@ -22,98 +32,122 @@ export default function ConflictResolution({
   onResolve,
   onGetContent,
   onWriteFile,
-  isLoading = false
 }: ConflictResolutionProps) {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [fileContent, setFileContent] = useState<string>('')
-  const [resolvedContent, setResolvedContent] = useState<string>('')
-  const [isLoadingContent, setIsLoadingContent] = useState(false)
-  const [isResolving, setIsResolving] = useState(false)
-  const [showEditor, setShowEditor] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [resolvedContent, setResolvedContent] = useState<string>("");
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+
+  const loadFileContent = useCallback(async () => {
+    if (!selectedFile) return;
+    setIsLoadingContent(true);
+    try {
+      const content = await onGetContent(selectedFile);
+      setResolvedContent(content);
+    } catch {
+      // Handle error silently
+    } finally {
+      setIsLoadingContent(false);
+    }
+  }, [selectedFile, onGetContent]);
 
   useEffect(() => {
     if (selectedFile && showEditor) {
-      loadFileContent()
+      loadFileContent();
     }
-  }, [selectedFile, showEditor])
+  }, [selectedFile, showEditor, loadFileContent]);
 
-  const loadFileContent = async () => {
-    if (!selectedFile) return
-    setIsLoadingContent(true)
-    try {
-      const content = await onGetContent(selectedFile)
-      setFileContent(content)
-      setResolvedContent(content)
-    } catch (err) {
-      console.error('Failed to load conflict content:', err)
-    } finally {
-      setIsLoadingContent(false)
-    }
-  }
+  const handleResolve = async (side: "ours" | "theirs" | "both") => {
+    if (!selectedFile) return;
 
-  const handleResolve = async (side: 'ours' | 'theirs' | 'both') => {
-    if (!selectedFile) return
-    
-    setIsResolving(true)
+    setIsResolving(true);
     try {
-      if (side === 'both') {
+      if (side === "both") {
         // Write the resolved content first
-        await onWriteFile(selectedFile, resolvedContent)
+        await onWriteFile(selectedFile, resolvedContent);
       }
-      await onResolve(selectedFile, side, side === 'both' ? resolvedContent : undefined)
-      setShowEditor(false)
-      setSelectedFile(null)
+      await onResolve(
+        selectedFile,
+        side,
+        side === "both" ? resolvedContent : undefined
+      );
+      setShowEditor(false);
+      setSelectedFile(null);
     } catch (err) {
-      console.error('Failed to resolve conflict:', err)
+      console.error("Failed to resolve conflict:", err);
     } finally {
-      setIsResolving(false)
+      setIsResolving(false);
     }
-  }
+  };
 
   const parseConflictMarkers = (content: string) => {
-    const lines = content.split('\n')
-    type Section = { type: 'ours' | 'theirs' | 'both' | 'context'; content: string; startLine: number; endLine: number }
-    const sections: Section[] = []
-    let currentSection: Section | null = null
-    
+    const lines = content.split("\n");
+    type Section = {
+      type: "ours" | "theirs" | "both" | "context";
+      content: string;
+      startLine: number;
+      endLine: number;
+    };
+    const sections: Section[] = [];
+    let currentSection: Section | null = null;
+
     lines.forEach((line, index) => {
-      if (line.startsWith('<<<<<<<')) {
+      if (line.startsWith("<<<<<<<")) {
         if (currentSection) {
-          currentSection.endLine = index - 1
-          sections.push(currentSection)
+          currentSection.endLine = index - 1;
+          sections.push(currentSection);
         }
-        currentSection = { type: 'ours', content: '', startLine: index, endLine: index }
-      } else if (line.startsWith('=======')) {
+        currentSection = {
+          type: "ours",
+          content: "",
+          startLine: index,
+          endLine: index,
+        };
+      } else if (line.startsWith("=======")) {
         if (currentSection) {
-          currentSection.endLine = index - 1
-          sections.push(currentSection)
-          currentSection = { type: 'theirs', content: '', startLine: index, endLine: index }
+          currentSection.endLine = index - 1;
+          sections.push(currentSection);
+          currentSection = {
+            type: "theirs",
+            content: "",
+            startLine: index,
+            endLine: index,
+          };
         }
-      } else if (line.startsWith('>>>>>>>')) {
+      } else if (line.startsWith(">>>>>>>")) {
         if (currentSection) {
-          currentSection.endLine = index - 1
-          sections.push(currentSection)
+          currentSection.endLine = index - 1;
+          sections.push(currentSection);
         }
-        currentSection = null
+        currentSection = null;
       } else if (currentSection) {
-        currentSection.content += line + '\n'
+        currentSection.content += line + "\n";
       } else {
-        if (sections.length === 0 || sections[sections.length - 1].type !== 'context') {
-          sections.push({ type: 'context', content: line + '\n', startLine: index, endLine: index })
+        if (
+          sections.length === 0 ||
+          sections[sections.length - 1].type !== "context"
+        ) {
+          sections.push({
+            type: "context",
+            content: line + "\n",
+            startLine: index,
+            endLine: index,
+          });
         } else {
-          sections[sections.length - 1].content += line + '\n'
-          sections[sections.length - 1].endLine = index
+          sections[sections.length - 1].content += line + "\n";
+          sections[sections.length - 1].endLine = index;
         }
       }
-    })
-    
+    });
+
     if (currentSection !== null) {
-      (currentSection as Section).endLine = lines.length - 1
-      sections.push(currentSection as Section)
+      (currentSection as Section).endLine = lines.length - 1;
+      sections.push(currentSection as Section);
     }
-    
-    return sections
-  }
+
+    return sections;
+  };
 
   if (conflicts.length === 0) {
     return (
@@ -123,7 +157,7 @@ export default function ConflictResolution({
           <p className="text-sm text-zinc-300">No conflicts detected</p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -145,14 +179,15 @@ export default function ConflictResolution({
                   key={file}
                   className={`
                     flex items-center justify-between p-2 rounded border cursor-pointer transition-colors
-                    ${selectedFile === file
-                      ? 'bg-yellow-500/10 border-yellow-500/50'
-                      : 'bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'
+                    ${
+                      selectedFile === file
+                        ? "bg-yellow-500/10 border-yellow-500/50"
+                        : "bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600"
                     }
                   `}
                   onClick={() => {
-                    setSelectedFile(file)
-                    setShowEditor(true)
+                    setSelectedFile(file);
+                    setShowEditor(true);
                   }}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -161,7 +196,10 @@ export default function ConflictResolution({
                       {file}
                     </span>
                   </div>
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-yellow-500 border-yellow-500/30">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] px-1.5 py-0 text-yellow-500 border-yellow-500/30"
+                  >
                     Conflict
                   </Badge>
                 </div>
@@ -192,7 +230,7 @@ export default function ConflictResolution({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleResolve('ours')}
+                      onClick={() => handleResolve("ours")}
                       disabled={isResolving}
                       className="h-7 text-[10px] border-zinc-700 text-zinc-300"
                     >
@@ -201,13 +239,16 @@ export default function ConflictResolution({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleResolve('theirs')}
+                      onClick={() => handleResolve("theirs")}
                       disabled={isResolving}
                       className="h-7 text-[10px] border-zinc-700 text-zinc-300"
                     >
                       Use Theirs
                     </Button>
-                    <Badge variant="outline" className="text-[9px] px-2 py-0 text-zinc-500 border-zinc-700 ml-auto">
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-2 py-0 text-zinc-500 border-zinc-700 ml-auto"
+                    >
                       Manual resolution required
                     </Badge>
                   </div>
@@ -226,15 +267,15 @@ export default function ConflictResolution({
               <Button
                 variant="ghost"
                 onClick={() => {
-                  setShowEditor(false)
-                  setSelectedFile(null)
+                  setShowEditor(false);
+                  setSelectedFile(null);
                 }}
                 className="text-zinc-400 hover:text-white"
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => handleResolve('both')}
+                onClick={() => handleResolve("both")}
                 disabled={isResolving || isLoadingContent}
                 className="bg-blue-600 hover:bg-blue-500 text-white"
               >
@@ -244,7 +285,7 @@ export default function ConflictResolution({
                     Resolving...
                   </>
                 ) : (
-                  'Resolve Manually'
+                  "Resolve Manually"
                 )}
               </Button>
             </DialogFooter>
@@ -252,5 +293,5 @@ export default function ConflictResolution({
         </Dialog>
       )}
     </>
-  )
+  );
 }

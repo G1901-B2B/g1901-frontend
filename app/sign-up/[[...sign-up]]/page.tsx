@@ -1,4 +1,4 @@
-import { SignUp } from '@clerk/nextjs'
+import { SignUp } from "@clerk/nextjs";
 
 export default function SignUpPage() {
   return (
@@ -14,7 +14,7 @@ export default function SignUpPage() {
               Transform repositories into learning journeys
             </p>
           </div>
-          <SignUp 
+          <SignUp
             forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
@@ -22,12 +22,11 @@ export default function SignUpPage() {
                 card: "shadow-none border border-zinc-200 rounded-lg",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
-              }
+              },
             }}
           />
         </div>
       </div>
     </div>
-  )
+  );
 }
-

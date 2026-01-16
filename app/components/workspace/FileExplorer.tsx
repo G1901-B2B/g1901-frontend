@@ -1,54 +1,68 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@clerk/nextjs'
-import { listFiles, createFile, deleteFile, type FileItem } from '../../lib/api-workspace'
-import { useWorkspaceStore } from '../../hooks/useWorkspaceStore'
-import { 
-  File, 
-  Folder, 
-  FolderOpen, 
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@clerk/nextjs";
+import {
+  listFiles,
+  createFile,
+  deleteFile,
+  type FileItem,
+} from "../../lib/api-workspace";
+import { useWorkspaceStore } from "../../hooks/useWorkspaceStore";
+import {
+  File,
+  Folder,
+  FolderOpen,
   ChevronRight,
   ChevronLeft,
-  Plus, 
-  FolderPlus, 
-  RefreshCcw, 
+  Plus,
+  FolderPlus,
+  RefreshCcw,
   Trash2,
   FileCode,
   FileJson,
   FileText,
   FileTerminal,
-  Loader2,
   MoreVertical,
-  AlertCircle
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
+  AlertCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 
 interface FileExplorerProps {
-  workspaceId: string
-  onFileSelect: (path: string) => void
-  selectedFile?: string
-  onRefresh?: () => void
-  onGitRefresh?: () => void
+  workspaceId: string;
+  onFileSelect: (path: string) => void;
+  selectedFile?: string;
+  onRefresh?: () => void;
+  onGitRefresh?: () => void;
 }
 
-function FileIcon({ filename, isDirectory }: { filename: string; isDirectory: boolean }) {
+function FileIcon({
+  filename,
+  isDirectory,
+}: {
+  filename: string;
+  isDirectory: boolean;
+}) {
   if (isDirectory) return null; // Icon handled by tree node
 
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
-  if (['ts', 'tsx', 'js', 'jsx', 'mjs', 'py'].includes(ext)) return <FileCode className="w-3.5 h-3.5 text-blue-400" />
-  if (ext === 'json') return <FileJson className="w-3.5 h-3.5 text-yellow-500" />
-  if (['md', 'mdx', 'txt'].includes(ext)) return <FileText className="w-3.5 h-3.5 text-zinc-400" />
-  if (['sh', 'bat', 'cmd'].includes(ext)) return <FileTerminal className="w-3.5 h-3.5 text-emerald-400" />
-  return <File className="w-3.5 h-3.5 text-zinc-500" />
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (["ts", "tsx", "js", "jsx", "mjs", "py"].includes(ext))
+    return <FileCode className="w-3.5 h-3.5 text-blue-400" />;
+  if (ext === "json")
+    return <FileJson className="w-3.5 h-3.5 text-yellow-500" />;
+  if (["md", "mdx", "txt"].includes(ext))
+    return <FileText className="w-3.5 h-3.5 text-zinc-400" />;
+  if (["sh", "bat", "cmd"].includes(ext))
+    return <FileTerminal className="w-3.5 h-3.5 text-emerald-400" />;
+  return <File className="w-3.5 h-3.5 text-zinc-500" />;
 }
 
 export default function FileExplorer({
@@ -58,167 +72,202 @@ export default function FileExplorer({
   onRefresh,
   onGitRefresh,
 }: FileExplorerProps) {
-  const { getToken } = useAuth()
-  const { closeFilesUnderPath } = useWorkspaceStore()
-  const [rootFiles, setRootFiles] = useState<FileItem[]>([])
-  const [childrenMap, setChildrenMap] = useState<Map<string, FileItem[]>>(new Map())
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [newFileName, setNewFileName] = useState('')
-  const [createType, setCreateType] = useState<'file' | 'folder'>('file')
+  const { getToken } = useAuth();
+  const { closeFilesUnderPath } = useWorkspaceStore();
+  const [rootFiles, setRootFiles] = useState<FileItem[]>([]);
+  const [childrenMap, setChildrenMap] = useState<Map<string, FileItem[]>>(
+    new Map()
+  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [createType, setCreateType] = useState<"file" | "folder">("file");
 
   const loadRootFiles = useCallback(async () => {
     try {
-      setIsLoading(true)
-      const token = await getToken()
-      if (!token) return
-      const files = await listFiles(workspaceId, '/workspace', token)
-      setRootFiles(files)
+      setIsLoading(true);
+      const token = await getToken();
+      if (!token) return;
+      const files = await listFiles(workspaceId, "/workspace", token);
+      setRootFiles(files);
     } catch (err) {
-      console.error('Explorer error:', err)
+      console.error("Explorer error:", err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [workspaceId, getToken])
+  }, [workspaceId, getToken]);
 
-  useEffect(() => { loadRootFiles() }, [loadRootFiles])
+  useEffect(() => {
+    loadRootFiles();
+  }, [loadRootFiles]);
 
   const handleToggle = async (path: string) => {
-    const next = new Set(expandedFolders)
+    const next = new Set(expandedFolders);
     if (next.has(path)) {
-      next.delete(path)
+      next.delete(path);
     } else {
-      next.add(path)
+      next.add(path);
       if (!childrenMap.has(path)) {
-        const token = await getToken()
+        const token = await getToken();
         if (token) {
-          const files = await listFiles(workspaceId, path, token)
-          setChildrenMap(new Map(childrenMap).set(path, files))
+          const files = await listFiles(workspaceId, path, token);
+          setChildrenMap(new Map(childrenMap).set(path, files));
         }
       }
     }
-    setExpandedFolders(next)
-  }
+    setExpandedFolders(next);
+  };
 
   const handleDelete = async (path: string) => {
     try {
-      const token = await getToken()
-      if (!token) return
-      
-      setError(null)
+      const token = await getToken();
+      if (!token) return;
+
+      setError(null);
       // Close any open files under this path (handles files and directories)
       // This must happen BEFORE deletion to ensure the file is closed
-      closeFilesUnderPath(path)
-      
+      closeFilesUnderPath(path);
+
       // Small delay to ensure file closing completes
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
-      await deleteFile(workspaceId, path, token)
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      await deleteFile(workspaceId, path, token);
+
       // Refresh file list
-      loadRootFiles()
-      setChildrenMap(new Map())
-      onRefresh?.()
-      
+      loadRootFiles();
+      setChildrenMap(new Map());
+      onRefresh?.();
+
       // Refresh git status to detect deleted file
       if (onGitRefresh) {
         // Small delay to ensure git detects the deletion
         setTimeout(() => {
-          onGitRefresh()
-        }, 300)
+          onGitRefresh();
+        }, 300);
       }
     } catch (err) {
-      console.error('Delete error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete file')
+      console.error("Delete error:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete file");
       // Auto-clear error after 3 seconds
-      setTimeout(() => setError(null), 3000)
+      setTimeout(() => setError(null), 3000);
     }
-  }
+  };
 
   const handleCreate = async () => {
-    if (!newFileName.trim()) return
-    setError(null)
+    if (!newFileName.trim()) return;
+    setError(null);
     try {
-      const token = await getToken()
-      if (!token) return
-      const path = `/workspace/${newFileName.trim()}`
-      await createFile(workspaceId, path, createType === 'folder', token)
-      setIsCreating(false)
-      setNewFileName('')
-      loadRootFiles()
-      setChildrenMap(new Map())
-      onRefresh?.()
+      const token = await getToken();
+      if (!token) return;
+      const path = `/workspace/${newFileName.trim()}`;
+      await createFile(workspaceId, path, createType === "folder", token);
+      setIsCreating(false);
+      setNewFileName("");
+      loadRootFiles();
+      setChildrenMap(new Map());
+      onRefresh?.();
     } catch (err) {
-      console.error('Create error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create item')
+      console.error("Create error:", err);
+      setError(err instanceof Error ? err.message : "Failed to create item");
       // Auto-clear error after 3 seconds
-      setTimeout(() => setError(null), 3000)
+      setTimeout(() => setError(null), 3000);
     }
-  }
+  };
 
   const renderNode = (file: FileItem, level: number) => {
-    const isExpanded = expandedFolders.has(file.path)
-    const isSelected = selectedFile === file.path
-    const children = childrenMap.get(file.path) || []
+    const isExpanded = expandedFolders.has(file.path);
+    const isSelected = selectedFile === file.path;
+    const children = childrenMap.get(file.path) || [];
 
     return (
       <div key={file.path}>
         <div
           className={`group flex items-center gap-2 px-3 py-1 cursor-pointer transition-colors ${
-            isSelected ? 'bg-blue-600/20 text-blue-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
+            isSelected
+              ? "bg-blue-600/20 text-blue-100"
+              : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
           }`}
           style={{ paddingLeft: `${level * 12 + 12}px` }}
-          onClick={() => file.is_directory ? handleToggle(file.path) : onFileSelect(file.path)}
+          onClick={() =>
+            file.is_directory
+              ? handleToggle(file.path)
+              : onFileSelect(file.path)
+          }
         >
           {file.is_directory ? (
             <div className="flex items-center gap-1.5">
-              <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-              {isExpanded ? <FolderOpen className="w-3.5 h-3.5 text-blue-400" /> : <Folder className="w-3.5 h-3.5 text-blue-400" />}
+              <ChevronRight
+                className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+              />
+              {isExpanded ? (
+                <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
+              ) : (
+                <Folder className="w-3.5 h-3.5 text-blue-400" />
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-1.5 ml-4">
               <FileIcon filename={file.name} isDirectory={false} />
             </div>
           )}
-          <span className="text-[11px] font-medium truncate flex-1">{file.name}</span>
-          
+          <span className="text-[11px] font-medium truncate flex-1">
+            {file.name}
+          </span>
+
           <div className="opacity-0 group-hover:opacity-100 flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-500 hover:text-white">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 text-zinc-500 hover:text-white"
+                >
                   <MoreVertical className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800 text-zinc-300">
-                <DropdownMenuItem onClick={() => handleDelete(file.path)} className="text-red-400 focus:text-red-400 focus:bg-red-400/10">
+              <DropdownMenuContent
+                align="start"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300"
+              >
+                <DropdownMenuItem
+                  onClick={() => handleDelete(file.path)}
+                  className="text-red-400 focus:text-red-400 focus:bg-red-400/10"
+                >
                   <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-        
+
         {file.is_directory && isExpanded && (
           <div>
             {children.length > 0 ? (
-              children.map(child => renderNode(child, level + 1))
+              children.map((child) => renderNode(child, level + 1))
             ) : (
-              <div className="py-1 px-3 text-[10px] text-zinc-600 italic" style={{ paddingLeft: `${(level + 1) * 12 + 32}px` }}>
+              <div
+                className="py-1 px-3 text-[10px] text-zinc-600 italic"
+                style={{ paddingLeft: `${(level + 1) * 12 + 32}px` }}
+              >
                 Empty
               </div>
             )}
           </div>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#09090b] relative">
       <div className="h-10 flex items-center justify-between px-4 border-b border-zinc-800 bg-[#0c0c0e] shrink-0">
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Explorer</span>
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+          Explorer
+        </span>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -226,36 +275,44 @@ export default function FileExplorer({
             className="h-6 w-6 text-zinc-500 hover:text-zinc-200"
             onClick={() => {
               // This will be handled by parent
-              const event = new CustomEvent('explorer-collapse')
-              window.dispatchEvent(event)
+              const event = new CustomEvent("explorer-collapse");
+              window.dispatchEvent(event);
             }}
             title="Hide Explorer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6 text-zinc-500 hover:text-zinc-200"
-            onClick={() => { setIsCreating(true); setCreateType('file'); }}
+            onClick={() => {
+              setIsCreating(true);
+              setCreateType("file");
+            }}
           >
             <Plus className="w-3.5 h-3.5" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6 text-zinc-500 hover:text-zinc-200"
-            onClick={() => { setIsCreating(true); setCreateType('folder'); }}
+            onClick={() => {
+              setIsCreating(true);
+              setCreateType("folder");
+            }}
           >
             <FolderPlus className="w-3.5 h-3.5" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6 text-zinc-500 hover:text-zinc-200"
             onClick={loadRootFiles}
           >
-            <RefreshCcw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCcw
+              className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`}
+            />
           </Button>
         </div>
       </div>
@@ -266,14 +323,27 @@ export default function FileExplorer({
             type="text"
             value={newFileName}
             onChange={(e) => setNewFileName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder={`New ${createType}...`}
             className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-[11px] text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-600 mb-2"
             autoFocus
           />
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setIsCreating(false)}>Cancel</Button>
-            <Button size="sm" className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-500 text-white" onClick={handleCreate}>Create</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setIsCreating(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-500 text-white"
+              onClick={handleCreate}
+            >
+              Create
+            </Button>
           </div>
         </div>
       )}
@@ -281,7 +351,9 @@ export default function FileExplorer({
       {error && (
         <div className="mx-3 my-2 p-2 bg-red-500/10 border border-red-500/20 rounded flex items-start gap-2 animate-in fade-in slide-in-from-top-1 shrink-0">
           <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-400 font-medium leading-tight">{error}</p>
+          <p className="text-[10px] text-red-400 font-medium leading-tight">
+            {error}
+          </p>
         </div>
       )}
 
@@ -295,12 +367,14 @@ export default function FileExplorer({
         ) : rootFiles.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <File className="w-8 h-8 text-zinc-800 mx-auto mb-2" />
-            <p className="text-[10px] text-zinc-600 font-medium">Empty Workspace</p>
+            <p className="text-[10px] text-zinc-600 font-medium">
+              Empty Workspace
+            </p>
           </div>
         ) : (
-          rootFiles.map(file => renderNode(file, 0))
+          rootFiles.map((file) => renderNode(file, 0))
         )}
       </ScrollArea>
     </div>
-  )
+  );
 }

@@ -7,7 +7,8 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
 }));
 
-const usePathnameMock = jest.requireMock("next/navigation").usePathname as jest.Mock;
+const usePathnameMock = jest.requireMock("next/navigation")
+  .usePathname as jest.Mock;
 
 describe("RoutePerformanceLogger", () => {
   beforeEach(() => {
@@ -35,12 +36,14 @@ describe("RoutePerformanceLogger", () => {
       .map((c) => c[1]);
 
     expect(calls.length).toBe(1);
-    expect(calls[0]).toMatchObject({ from: "/a", to: "/b", startType: "pushState" });
+    expect(calls[0]).toMatchObject({
+      from: "/a",
+      to: "/b",
+      startType: "pushState",
+    });
     expect(typeof calls[0].ms).toBe("number");
     expect(calls[0].ms).toBeGreaterThanOrEqual(0);
 
     infoSpy.mockRestore();
   });
 });
-
-

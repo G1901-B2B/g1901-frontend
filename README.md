@@ -84,11 +84,13 @@ app/
 ### Page Structure
 
 **Server Components** (default):
+
 - `app/page.tsx` - Homepage
 - `app/dashboard/page.tsx` - Dashboard with server-side data fetching
 - `app/project/[projectId]/page.tsx` - Project detail page
 
 **Client Components** (marked with `'use client'`):
+
 - All components in `app/components/` are client components
 - Interactive UI elements (modals, forms, chat widgets)
 - **🆕 Monaco Editor and File Explorer for workspace**
@@ -112,16 +114,19 @@ app/
 ### Data Flow
 
 **Server Components:**
+
 ```
 Page Component → API Function (lib/api-*.ts) → Backend API → Render
 ```
 
 **Client Components:**
+
 ```
 Component → Hook (useRoadmap, useProgress) → API Function → Backend API → State Update
 ```
 
 **🆕 Workspace Flow (Phase 0):**
+
 ```
 CodeEditor Mount → getOrCreateWorkspace() → startWorkspace() → FileExplorer loads files
 User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Container updated
@@ -130,11 +135,13 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 ### API Client Architecture
 
 **Base Client** (`lib/api-client.ts`):
+
 - Handles authentication headers
 - Centralized error handling
 - Base URL configuration
 
 **Feature Modules** (`lib/api-*.ts`):
+
 - Organized by domain (projects, roadmap, chatbot, **workspace**)
 - Type-safe API calls
 - Reusable across server and client components
@@ -142,16 +149,19 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 ## Key Components
 
 **RoadmapPage** (`components/roadmap/RoadmapPage.tsx`):
+
 - Main container for roadmap visualization
 - Manages day selection and concept display
 - Coordinates between DayCardsStrip, ConceptCard, and ConceptDetailPanel
 
 **DashboardContent** (`components/dashboard/DashboardContent.tsx`):
+
 - Displays user's projects list
 - Handles project creation via modal
 - Shows project status and navigation
 
 **ChatbotWidget** (`components/chatbot/ChatbotWidget.tsx`):
+
 - Chat interface for RAG queries
 - Manages conversation history
 - Integrates with backend chatbot API
@@ -159,6 +169,7 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 ### 🆕 Phase 0 Components
 
 **CodeEditor** (`components/workspace/CodeEditor.tsx`):
+
 - Main workspace container component
 - Auto-initializes Docker workspace on mount
 - Manages open files with tabs
@@ -167,6 +178,7 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 - Coordinates save operations to container
 
 **MonacoEditor** (`components/workspace/MonacoEditor.tsx`):
+
 - VS Code's editor engine via `@monaco-editor/react`
 - Automatic language detection from file extension
 - Syntax highlighting for 15+ languages
@@ -175,6 +187,7 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 - Auto-resize on container change
 
 **FileExplorer** (`components/workspace/FileExplorer.tsx`):
+
 - Recursive tree view of container filesystem
 - Create new files/folders via header buttons
 - Right-click context menu (Rename, Delete)
@@ -183,6 +196,7 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 - Auto-refresh after operations
 
 **api-workspace.ts** (`lib/api-workspace.ts`):
+
 - `createWorkspace()` / `getOrCreateWorkspace()` - Workspace lifecycle
 - `startWorkspace()` / `stopWorkspace()` - Container control
 - `listFiles()` / `readFile()` / `writeFile()` - File operations
@@ -191,32 +205,38 @@ User edits → MonacoEditor onChange → Save (Ctrl+S) → writeFile() → Conta
 ## Navigation Guide
 
 **To add a new page:**
+
 1. Create directory in `app/[route]/`
 2. Add `page.tsx` (server component) or mark with `'use client'`
 3. Update middleware if route needs protection
 4. Add navigation link in `components/Header.tsx` if needed
 
 **To add a new API endpoint:**
+
 1. Create function in `app/lib/api-[feature].ts`
 2. Export from `app/lib/api.ts`
 3. Use in components or hooks
 
 **To modify roadmap display:**
+
 1. Update components in `app/components/roadmap/`
 2. Modify data fetching in `app/hooks/useRoadmap.ts`
 3. Adjust types in `app/lib/types.ts` if schema changes
 
 **To add a new feature component:**
+
 1. Create directory in `app/components/[feature]/`
 2. Build component with proper TypeScript types
 3. Import and use in relevant pages
 
 **To change authentication behavior:**
+
 1. Modify `middleware.ts` for route protection
 2. Update `app/layout.tsx` for Clerk configuration
 3. Adjust API client auth in `lib/api-client.ts`
 
 **🆕 To modify workspace behavior:**
+
 1. Update `CodeEditor.tsx` for layout/coordination changes
 2. Modify `MonacoEditor.tsx` for editor configuration
 3. Adjust `FileExplorer.tsx` for file tree behavior
@@ -244,6 +264,7 @@ npm test
 ## Environment Variables
 
 Required environment variables:
+
 - `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:8000)
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
 - `CLERK_SECRET_KEY` - Clerk secret key (for server-side)

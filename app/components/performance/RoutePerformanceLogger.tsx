@@ -18,7 +18,13 @@ declare global {
       lastNavStart?: NavStartDetail;
       logs?: Array<
         | { kind: "initial-load"; url: string; ms: number }
-        | { kind: "route-change"; to: string; from?: string; ms: number; startType?: NavStartType }
+        | {
+            kind: "route-change";
+            to: string;
+            from?: string;
+            ms: number;
+            startType?: NavStartType;
+          }
       >;
     };
   }
@@ -33,7 +39,9 @@ function ensureHistoryPatched() {
 
   const emit = (detail: NavStartDetail) => {
     window.__gitguidePerf!.lastNavStart = detail;
-    window.dispatchEvent(new CustomEvent<NavStartDetail>(NAV_START_EVENT, { detail }));
+    window.dispatchEvent(
+      new CustomEvent<NavStartDetail>(NAV_START_EVENT, { detail })
+    );
   };
 
   const { history } = window;
@@ -43,17 +51,27 @@ function ensureHistoryPatched() {
   history.pushState = function pushStatePatched(...args) {
     const to = typeof args[2] === "string" ? args[2] : undefined;
     emit({ ts: performance.now(), type: "pushState", to });
-    return originalPushState.apply(this, args as unknown as Parameters<History["pushState"]>);
+    return originalPushState.apply(
+      this,
+      args as unknown as Parameters<History["pushState"]>
+    );
   };
 
   history.replaceState = function replaceStatePatched(...args) {
     const to = typeof args[2] === "string" ? args[2] : undefined;
     emit({ ts: performance.now(), type: "replaceState", to });
-    return originalReplaceState.apply(this, args as unknown as Parameters<History["replaceState"]>);
+    return originalReplaceState.apply(
+      this,
+      args as unknown as Parameters<History["replaceState"]>
+    );
   };
 
   window.addEventListener("popstate", () => {
-    emit({ ts: performance.now(), type: "popstate", to: window.location.pathname });
+    emit({
+      ts: performance.now(),
+      type: "popstate",
+      to: window.location.pathname,
+    });
   });
 
   window.__gitguidePerf.patched = true;
@@ -62,11 +80,17 @@ function ensureHistoryPatched() {
 function logInitialLoad() {
   if (typeof performance.getEntriesByType !== "function") return;
 
-  const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  const nav = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
   if (!nav) return;
 
   const ms = Math.round(nav.duration);
-  window.__gitguidePerf?.logs?.push({ kind: "initial-load", url: window.location.pathname, ms });
+  window.__gitguidePerf?.logs?.push({
+    kind: "initial-load",
+    url: window.location.pathname,
+    ms,
+  });
   console.info("[perf] initial-load", { url: window.location.pathname, ms });
 }
 
@@ -106,10 +130,13 @@ export function RoutePerformanceLogger() {
       startType: start.type,
     });
 
-    console.info("[perf] route-change", { from, to: pathname, ms, startType: start.type });
+    console.info("[perf] route-change", {
+      from,
+      to: pathname,
+      ms,
+      startType: start.type,
+    });
   }, [pathname]);
 
   return null;
 }
-
-

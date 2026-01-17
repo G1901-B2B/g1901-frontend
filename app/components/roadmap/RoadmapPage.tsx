@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   useRoadmap,
   useDayDetails,
@@ -71,27 +71,31 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
     return null;
   }, [days, current]);
 
-  const [selectedDayId, setSelectedDayId] = useState<string | null>(() =>
-    getInitialDayId()
+  // Compute initial day ID using useMemo to avoid synchronous setState
+  const initialDayId = useMemo(() => getInitialDayId(), [getInitialDayId]);
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(
+    initialDayId
   );
+  const hasInitializedDayId = useRef(false);
 
   // Sync selectedDayId when days/current change (only if not set by user)
   const prevDaysLength = useRef(days.length);
   useEffect(() => {
     if (days.length > 0 && days.length !== prevDaysLength.current) {
       const newDayId = getInitialDayId();
-      if (newDayId && !selectedDayId) {
-        setSelectedDayId(newDayId);
+      if (newDayId && !selectedDayId && !hasInitializedDayId.current) {
+        // Use setTimeout to defer state update and avoid synchronous setState
+        const timeoutId = setTimeout(() => {
+          setSelectedDayId(newDayId);
+          hasInitializedDayId.current = true;
+        }, 0);
+        return () => clearTimeout(timeoutId);
       }
     }
     prevDaysLength.current = days.length;
   }, [days.length, getInitialDayId, selectedDayId]);
 
   const { dayDetails } = useDayDetails(projectId, selectedDayId);
-  const { conceptDetails, loading: conceptDetailsLoading } = useConceptDetails(
-    projectId,
-    selectedConceptId
-  );
 
   // Compute initial concept ID
   const getInitialConceptId = useCallback(() => {
@@ -106,8 +110,34 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
     return null;
   }, [dayDetails, current]);
 
+  // Compute initial concept ID using useMemo
+  const initialConceptId = useMemo(
+    () => getInitialConceptId(),
+    [getInitialConceptId]
+  );
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(
-    () => getInitialConceptId()
+    initialConceptId
+  );
+  const hasInitializedConceptId = useRef(false);
+
+  // Set initial concept ID when dayDetails becomes available
+  useEffect(() => {
+    if (dayDetails && !selectedConceptId && !hasInitializedConceptId.current) {
+      const conceptId = getInitialConceptId();
+      if (conceptId) {
+        // Use setTimeout to defer state update and avoid synchronous setState
+        const timeoutId = setTimeout(() => {
+          setSelectedConceptId(conceptId);
+          hasInitializedConceptId.current = true;
+        }, 0);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [dayDetails, getInitialConceptId, selectedConceptId]);
+
+  const { conceptDetails, loading: conceptDetailsLoading } = useConceptDetails(
+    projectId,
+    selectedConceptId
   );
 
   // Sync selectedConceptId when dayDetails/current change (only if not set by user)
@@ -120,11 +150,33 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
     ) {
       const newConceptId = getInitialConceptId();
       if (newConceptId && !selectedConceptId) {
-        setSelectedConceptId(newConceptId);
+        // Use setTimeout to defer state update and avoid synchronous setState
+        const timeoutId = setTimeout(() => {
+          setSelectedConceptId(newConceptId);
+        }, 0);
+        return () => clearTimeout(timeoutId);
       }
     }
     prevDayDetailsConceptsLength.current = dayDetails?.concepts.length ?? 0;
   }, [dayDetails, getInitialConceptId, selectedConceptId]);
+
+  // Update selectedConceptId when current concept changes
+  useEffect(() => {
+    if (current?.current_concept && dayDetails) {
+      const currentConceptId = current.current_concept.concept_id;
+      // Only update if the current concept is in the selected day
+      const conceptInDay = dayDetails.concepts.find(
+        (c) => c.concept_id === currentConceptId
+      );
+      if (conceptInDay && selectedConceptId !== currentConceptId) {
+        // Use setTimeout to defer state update and avoid synchronous setState
+        const timeoutId = setTimeout(() => {
+          setSelectedConceptId(currentConceptId);
+        }, 0);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [current?.current_concept, dayDetails, selectedConceptId]);
 
   const handleConceptClick = (conceptId: string) => {
     setSelectedConceptId(conceptId);

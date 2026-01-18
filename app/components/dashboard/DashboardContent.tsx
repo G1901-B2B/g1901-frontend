@@ -108,20 +108,15 @@ export default function DashboardContent({
     });
   };
 
-  // Projects that can be clicked and navigated to (Day 0 content ready)
-  const readyProjects = projects.filter(
-    (p) => p.status === "ready" || p.status === "day0_ready"
-  );
-  // Projects still being created (Day 0 not yet ready)
+  // Projects that can be clicked and navigated to (fully ready)
+  const readyProjects = projects.filter((p) => p.status === "ready");
+  // Projects still being created
   const processingProjects = projects.filter(
     (p) => p.status === "processing" || p.status === "created"
   );
   // Projects where background processing continues (for polling)
   const backgroundProcessingProjects = projects.filter(
-    (p) =>
-      p.status === "processing" ||
-      p.status === "created" ||
-      p.status === "day0_ready"
+    (p) => p.status === "processing" || p.status === "created"
   );
   const failedProjects = projects.filter((p) => p.status === "failed");
 
@@ -211,12 +206,6 @@ export default function DashboardContent({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ready":
-        return (
-          <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">
-            Ready
-          </Badge>
-        );
-      case "day0_ready":
         return (
           <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">
             Ready

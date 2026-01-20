@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { type Task, completeTask } from "../../lib/api-roadmap";
 import {
+  verifyTask,
+  type TaskVerificationResponse,
+} from "../../lib/api-verification";
+import {
   getOrCreateWorkspace,
   readFile,
   writeFile,
@@ -115,6 +119,8 @@ export default function CodeEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialCompleted || false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] =
+    useState<TaskVerificationResponse | null>(null);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [gitCommits, setGitCommits] = useState<GitCommitEntry[]>([]);
   const [gitLoading, setGitLoading] = useState(false);
@@ -808,24 +814,42 @@ export default function CodeEditor({
   }, [workspaceId, getToken, refreshGitData]);
 
   const handleVerifyTask = async () => {
-    const hasCode = openFiles.some((f) => f.content.trim().length > 10);
-    if (!hasCode) {
-      setOutput("Please write some code before verifying.");
+    if (!workspaceId) {
+      setOutput("Workspace not ready. Please wait...");
       return;
     }
+
     setIsVerifying(true);
+    setVerificationResult(null);
+
     try {
       const token = await getToken();
-      if (!token) return;
-      await completeTask(projectId, task.task_id, token);
-      if (taskSessionId) {
-        await completeTaskSession(taskSessionId, token);
+      if (!token) {
+        setOutput("Authentication required.");
+        return;
       }
-      setIsCompleted(true);
-      onComplete();
-      setOutput("✓ Task verified successfully!");
-    } catch {
-      setOutput("Verification failed. Check your logic.");
+
+      // Call verification API
+      const result = await verifyTask(task.task_id, workspaceId, token);
+      setVerificationResult(result);
+
+      if (result.passed) {
+        // If verification passes, mark task as complete
+        await completeTask(projectId, task.task_id, token);
+        if (taskSessionId) {
+          await completeTaskSession(taskSessionId, token);
+        }
+        setIsCompleted(true);
+        onComplete();
+        setOutput("✓ Task verified and completed successfully!");
+      } else {
+        setOutput(`Verification failed: ${result.overall_feedback}`);
+      }
+    } catch (error) {
+      setOutput(
+        `Verification error: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+      setVerificationResult(null);
     } finally {
       setIsVerifying(false);
     }
@@ -1101,6 +1125,7 @@ export default function CodeEditor({
               isCompleted={isCompleted}
               isVerifying={isVerifying}
               onVerifyTask={handleVerifyTask}
+              verificationResult={verificationResult}
               gitStatus={gitStatus}
               gitCommits={gitCommits}
               gitLoading={gitLoading}

@@ -7,6 +7,7 @@ import GitPanel from "./GitPanel";
 import TaskPanel from "./TaskPanel";
 import ChatPanel from "./ChatPanel";
 import type { Task } from "../../lib/api-roadmap";
+import type { TaskVerificationResponse } from "../../lib/api-verification";
 import type {
   GitCommitEntry,
   GitStatusResponse,
@@ -60,6 +61,7 @@ export default function RightSidePanel({
   isCompleted,
   isVerifying,
   onVerifyTask,
+  verificationResult,
   gitStatus,
   gitCommits,
   gitLoading,
@@ -129,6 +131,7 @@ export default function RightSidePanel({
             isCompleted={isCompleted}
             isVerifying={isVerifying}
             onVerifyTask={onVerifyTask}
+            verificationResult={verificationResult}
           />
         </TabsContent>
 

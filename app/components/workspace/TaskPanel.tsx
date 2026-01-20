@@ -5,12 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Task } from "../../lib/api-roadmap";
+import type { TaskVerificationResponse } from "../../lib/api-verification";
+import VerificationResults from "./VerificationResults";
 
 interface TaskPanelProps {
   task: Task;
   isCompleted: boolean;
   isVerifying: boolean;
   onVerifyTask: () => void;
+  verificationResult?: TaskVerificationResponse | null;
 }
 
 export default function TaskPanel({
@@ -66,6 +69,13 @@ export default function TaskPanel({
             </div>
           )}
         </div>
+
+        {/* Verification Results */}
+        {verificationResult && (
+          <div className="mt-8 pt-8 border-t border-zinc-800">
+            <VerificationResults result={verificationResult} />
+          </div>
+        )}
       </ScrollArea>
 
       <div className="p-4 border-t border-zinc-800 bg-[#0c0c0e] shrink-0 space-y-3">

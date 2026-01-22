@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Header from "../../components/Header";
 import RoadmapPage from "../../components/roadmap/RoadmapPage";
-import { getProject, type Project } from "../../lib/api";
+import { getProject, syncUser, type Project } from "../../lib/api";
 
 // Force dynamic rendering to prevent caching issues
 export const dynamic = "force-dynamic";
@@ -75,6 +75,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   if (!userId) {
     redirect("/sign-in");
+  }
+
+  // Sync user data to database when they access any protected page
+  try {
+    await syncUser();
+  } catch (error) {
+    // Log error but don't block the page - user can still use the app
+    console.error("Failed to sync user to database:", error);
   }
 
   // Await params in Next.js 16

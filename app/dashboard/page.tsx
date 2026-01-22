@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import Header from "../components/Header";
 import DashboardContent from "../components/dashboard/DashboardContent";
 import Loading from "./loading";
-import { listUserProjects } from "../lib/api";
+import { listUserProjects, syncUser } from "../lib/api";
 import { type Project } from "../lib/api";
 
 // Separate component for async data fetching
@@ -26,6 +26,14 @@ export default async function DashboardPage() {
 
   if (!userId) {
     redirect("/sign-in");
+  }
+
+  // Sync user data to database when they access the dashboard
+  try {
+    await syncUser();
+  } catch (error) {
+    // Log error but don't block the page - user can still use the app
+    console.error("Failed to sync user to database:", error);
   }
 
   return (

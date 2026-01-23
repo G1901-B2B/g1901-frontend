@@ -6,8 +6,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+// Use HTTPS domain in production, fallback to IP for development
 const VM_BASE_URL =
-  process.env.WORKSPACE_API_BASE_URL || "http://35.222.130.245:8080";
+  process.env.WORKSPACE_API_BASE_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://workspaces.gitguide.dev"
+    : "http://35.222.130.245:8080");
 
 export async function OPTIONS() {
   // Handle CORS preflight
@@ -131,8 +135,14 @@ async function proxyRequest(
     });
   } catch (error) {
     console.error("Workspace proxy error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to proxy request to workspace service" },
+      {
+        error: "Failed to proxy request to workspace service",
+        detail: errorMessage,
+        url: `${VM_BASE_URL}/api/workspaces/${pathSegments.join("/")}`,
+      },
       { status: 500 }
     );
   }

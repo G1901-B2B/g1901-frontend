@@ -5,10 +5,9 @@
 
 // Use relative URLs to go through Next.js proxy (avoids mixed content issues)
 // The proxy routes at /app/api/workspaces/[...path] forward to the VM
-const API_BASE =
-  process.env.NEXT_PUBLIC_WORKSPACE_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "";
+// If NEXT_PUBLIC_WORKSPACE_API_BASE_URL is set, use it directly (for direct VM access)
+// Otherwise, use empty string to use Next.js proxy routes
+const API_BASE = process.env.NEXT_PUBLIC_WORKSPACE_API_BASE_URL || "";
 
 // Types
 

@@ -1,8 +1,12 @@
 /**
  * Task Sessions API Client
+ * Task sessions require Docker access, so they run on the workspace VM
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_WORKSPACE_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "";
 
 export interface TaskSession {
   session_id: string;

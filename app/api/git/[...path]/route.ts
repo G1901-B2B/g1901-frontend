@@ -10,16 +10,18 @@ const VM_BASE_URL =
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, "GET");
+  const { path } = await params;
+  return proxyRequest(request, path, "GET");
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, "POST");
+  const { path } = await params;
+  return proxyRequest(request, path, "POST");
 }
 
 async function proxyRequest(

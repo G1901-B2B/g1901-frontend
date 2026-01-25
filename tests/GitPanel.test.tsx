@@ -33,7 +33,7 @@ describe("GitPanel", () => {
       />
     );
 
-    expect(screen.getByText("Git Status")).toBeInTheDocument();
+    expect(screen.getByText("Git")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByText("Initial commit")).toBeInTheDocument();
   });

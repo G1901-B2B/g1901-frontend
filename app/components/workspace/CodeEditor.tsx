@@ -12,6 +12,8 @@ import {
   readFile,
   writeFile,
   recreateWorkspace,
+  getPreviewServers,
+  type PreviewServerInfo,
 } from "../../lib/api-workspace";
 import {
   getGitStatus,
@@ -155,8 +157,15 @@ export default function CodeEditor({
     "5173": "http://localhost:30003",
     "8080": "http://localhost:30005",
   });
+  const [previewServers, setPreviewServers] = useState<PreviewServerInfo[]>([]);
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath);
+  const activePreviewServers = previewServers.filter(
+    (server) => server.url && server.is_active !== false
+  );
+  const primaryPreviewUrl = activePreviewServers[0]?.url || null;
+  const previewCount = activePreviewServers.length;
+  const hasMultiplePreviews = previewCount > 1;
 
   const handleToggleExplorer = useCallback(() => {
     setExplorerCollapsed((prev) => !prev);
@@ -236,6 +245,45 @@ export default function CodeEditor({
       mounted = false;
     };
   }, [workspaceId, task.task_id, getToken, taskSessionId]);
+
+  const refreshPreviewServers = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const result = await getPreviewServers(workspaceId, token);
+      if (result?.servers) {
+        setPreviewServers(result.servers);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch preview servers:", err);
+    }
+  }, [workspaceId, getToken]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    let mounted = true;
+
+    const tick = async () => {
+      if (!mounted) return;
+      await refreshPreviewServers();
+    };
+
+    tick();
+    const intervalId = setInterval(() => {
+      tick();
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
+  }, [workspaceId, refreshPreviewServers]);
+
+  useEffect(() => {
+    if (!previewPortsOpen) return;
+    refreshPreviewServers();
+  }, [previewPortsOpen, refreshPreviewServers]);
 
   // Handle file selection from Explorer
   const handleFileSelect = useCallback(
@@ -1034,29 +1082,74 @@ export default function CodeEditor({
               <code className="bg-zinc-800 px-1 rounded">npm run dev</code>),
               access it using these URLs:
             </p>
-            <div className="space-y-2">
-              {Object.entries(previewPorts).map(([port, url]) => (
-                <div
-                  key={port}
-                  className="flex items-center justify-between p-2 bg-zinc-900 rounded border border-zinc-800"
-                >
-                  <span className="text-sm text-zinc-300">
-                    Container port{" "}
-                    <code className="bg-zinc-800 px-1 rounded text-blue-400">
-                      {port}
-                    </code>
-                  </span>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
-                  >
-                    {url}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+            <div className="space-y-3">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                Detected Previews
+              </div>
+              {previewCount === 0 && (
+                <div className="text-xs text-zinc-500">
+                  No previews detected yet. Start a server in the terminal to
+                  see a link.
                 </div>
-              ))}
+              )}
+              {previewCount === 1 && primaryPreviewUrl && (
+                <Button
+                  onClick={() => window.open(primaryPreviewUrl, "_blank")}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  Open Preview
+                </Button>
+              )}
+              {hasMultiplePreviews && (
+                <div className="grid gap-2">
+                  {activePreviewServers.map((server, index) => (
+                    <Button
+                      key={`${server.container_port}-${server.url}`}
+                      onClick={() =>
+                        server.url && window.open(server.url, "_blank")
+                      }
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white justify-between"
+                    >
+                      <span>{`Preview ${index + 1}`}</span>
+                      <span className="text-[10px] text-emerald-100">
+                        Port {server.container_port}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <div className="pt-2 border-t border-zinc-800">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                  Default Ports
+                </div>
+                <div className="text-xs text-zinc-500">
+                  If detection misses a server, use the default port list below.
+                </div>
+                <div className="mt-2 space-y-2">
+                  {Object.entries(previewPorts).map(([port, url]) => (
+                    <div
+                      key={port}
+                      className="flex items-center justify-between p-2 bg-zinc-900 rounded border border-zinc-800"
+                    >
+                      <span className="text-sm text-zinc-300">
+                        Container port{" "}
+                        <code className="bg-zinc-800 px-1 rounded text-blue-400">
+                          {port}
+                        </code>
+                      </span>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
+                      >
+                        {url}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="pt-2 border-t border-zinc-800">
               <p className="text-xs text-zinc-500 mb-3">
@@ -1204,16 +1297,32 @@ export default function CodeEditor({
                       Terminal
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPreviewPortsOpen(true)}
-                    className="h-6 px-2 text-[10px] font-medium text-zinc-500 hover:text-white"
-                    title="Preview running servers"
-                  >
-                    <Globe className="w-3 h-3 mr-1" />
-                    Preview
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {primaryPreviewUrl && (
+                      <Button
+                        onClick={() => window.open(primaryPreviewUrl, "_blank")}
+                        className="h-6 px-2 text-[10px] font-medium bg-emerald-600 hover:bg-emerald-500 text-white"
+                        title="Open detected preview"
+                      >
+                        Open Preview
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewPortsOpen(true)}
+                      className={`h-6 px-2 text-[10px] font-medium ${
+                        previewCount > 0
+                          ? "text-emerald-400 hover:text-emerald-300"
+                          : "text-zinc-500 hover:text-white"
+                      }`}
+                      title="Preview running servers"
+                    >
+                      <Globe className="w-3 h-3 mr-1" />
+                      Preview{previewCount > 0 ? ` (${previewCount})` : ""}
+                    </Button>
+                  </div>
                 </div>
                 <div className="h-[calc(100%-32px)]">
                   {workspaceId ? (

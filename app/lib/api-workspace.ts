@@ -251,6 +251,40 @@ export async function recreateWorkspace(
   return response.json();
 }
 
+export interface PreviewServerInfo {
+  container_port: number;
+  host_port?: number | null;
+  url?: string | null;
+  type?: string | null;
+  server_type?: string | null;
+  detected_at?: string | null;
+  is_active?: boolean | null;
+}
+
+export async function getPreviewServers(
+  workspaceId: string,
+  token: string
+): Promise<{ success: boolean; servers: PreviewServerInfo[] }> {
+  const response = await fetch(
+    `${API_BASE}/api/preview/${workspaceId}/servers`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to fetch preview servers" }));
+    throw new Error(error.detail || "Failed to fetch preview servers");
+  }
+
+  return response.json();
+}
+
 // File System Operations
 
 export async function listFiles(

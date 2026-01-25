@@ -1326,7 +1326,10 @@ export default function CodeEditor({
                 </div>
                 <div className="h-[calc(100%-32px)]">
                   {workspaceId ? (
-                    <TerminalTabs workspaceId={workspaceId} />
+                    <TerminalTabs
+                      workspaceId={workspaceId}
+                      previewServerCount={previewCount}
+                    />
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="w-6 h-6 text-zinc-700 animate-spin" />

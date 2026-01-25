@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import PreviewPortsPanel from "./PreviewPortsPanel";
 
 // Dynamic import of Terminal to avoid SSR issues
 const Terminal = dynamic(() => import("./Terminal"), {
@@ -22,15 +23,24 @@ interface TerminalTab {
   sessionId?: string;
 }
 
+type PanelType = "terminal" | "preview" | "problems" | "output";
+
 interface TerminalTabsProps {
   workspaceId: string;
+  previewServerCount?: number;
+  onPreviewClick?: () => void;
 }
 
-export default function TerminalTabs({ workspaceId }: TerminalTabsProps) {
+export default function TerminalTabs({
+  workspaceId,
+  previewServerCount = 0,
+  onPreviewClick,
+}: TerminalTabsProps) {
   const [tabs, setTabs] = useState<TerminalTab[]>([
     { id: "1", name: "Terminal" },
   ]);
   const [activeTabId, setActiveTabId] = useState("1");
+  const [activePanel, setActivePanel] = useState<PanelType>("terminal");
 
   // Create a new terminal tab
   const handleCreateTab = useCallback(() => {
@@ -85,9 +95,12 @@ export default function TerminalTabs({ workspaceId }: TerminalTabsProps) {
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
+              onClick={() => {
+                setActiveTabId(tab.id);
+                setActivePanel("terminal");
+              }}
               className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer border-r border-zinc-800 min-w-0 ${
-                activeTabId === tab.id
+                activeTabId === tab.id && activePanel === "terminal"
                   ? "bg-[#1a1a1a] text-zinc-300 border-b-2 border-b-blue-500"
                   : "bg-[#2d2d2d] text-zinc-500 hover:text-zinc-300"
               }`}
@@ -156,31 +169,75 @@ export default function TerminalTabs({ workspaceId }: TerminalTabsProps) {
 
         {/* Panel tabs */}
         <div className="flex items-center gap-4 px-2">
-          <span className="text-xs text-zinc-600 px-2 py-1 hover:text-zinc-400 cursor-pointer">
+          <span
+            onClick={() => {
+              setActivePanel("preview");
+              onPreviewClick?.();
+            }}
+            className={`text-xs px-2 py-1 cursor-pointer transition-colors relative ${
+              activePanel === "preview"
+                ? "text-emerald-400 font-semibold"
+                : "text-zinc-600 hover:text-zinc-400"
+            }`}
+          >
+            Preview
+            {previewServerCount > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-emerald-400 bg-emerald-400/20 rounded-full">
+                {previewServerCount}
+              </span>
+            )}
+          </span>
+          <span
+            onClick={() => setActivePanel("problems")}
+            className={`text-xs px-2 py-1 cursor-pointer transition-colors ${
+              activePanel === "problems"
+                ? "text-blue-400 font-semibold"
+                : "text-zinc-600 hover:text-zinc-400"
+            }`}
+          >
             Problems
           </span>
-          <span className="text-xs text-zinc-600 px-2 py-1 hover:text-zinc-400 cursor-pointer">
+          <span
+            onClick={() => setActivePanel("output")}
+            className={`text-xs px-2 py-1 cursor-pointer transition-colors ${
+              activePanel === "output"
+                ? "text-blue-400 font-semibold"
+                : "text-zinc-600 hover:text-zinc-400"
+            }`}
+          >
             Output
           </span>
         </div>
       </div>
 
-      {/* Terminal content */}
+      {/* Panel content */}
       <div className="flex-1 min-h-0">
-        {(() => {
-          const activeTab = tabs.find((tab) => tab.id === activeTabId);
-          if (!activeTab) return null;
-          return (
-            <Terminal
-              workspaceId={workspaceId}
-              sessionId={activeTab.sessionId}
-              onSessionCreated={(sessionId) =>
-                handleSessionCreated(activeTab.id, sessionId)
-              }
-              isActive
-            />
-          );
-        })()}
+        {activePanel === "preview" ? (
+          <PreviewPortsPanel workspaceId={workspaceId} />
+        ) : activePanel === "problems" ? (
+          <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+            <span className="text-xs text-zinc-600">No problems detected</span>
+          </div>
+        ) : activePanel === "output" ? (
+          <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+            <span className="text-xs text-zinc-600">No output</span>
+          </div>
+        ) : (
+          (() => {
+            const activeTab = tabs.find((tab) => tab.id === activeTabId);
+            if (!activeTab) return null;
+            return (
+              <Terminal
+                workspaceId={workspaceId}
+                sessionId={activeTab.sessionId}
+                onSessionCreated={(sessionId) =>
+                  handleSessionCreated(activeTab.id, sessionId)
+                }
+                isActive
+              />
+            );
+          })()
+        )}
       </div>
     </div>
   );

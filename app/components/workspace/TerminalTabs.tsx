@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { Globe } from "lucide-react";
 import PreviewPortsPanel from "./PreviewPortsPanel";
 
 // Dynamic import of Terminal to avoid SSR issues
@@ -167,46 +168,51 @@ export default function TerminalTabs({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Panel tabs */}
-        <div className="flex items-center gap-4 px-2">
-          <span
+        {/* Panel tabs: Preview, Problems, Output */}
+        <div className="flex items-center gap-3 px-3 shrink-0">
+          <button
+            type="button"
             onClick={() => {
               setActivePanel("preview");
               onPreviewClick?.();
             }}
-            className={`text-xs px-2 py-1 cursor-pointer transition-colors relative ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors ${
               activePanel === "preview"
-                ? "text-emerald-400 font-semibold"
-                : "text-zinc-600 hover:text-zinc-400"
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80 border border-transparent"
             }`}
+            title="Preview running servers"
           >
+            <Globe className="w-3.5 h-3.5" />
             Preview
             {previewServerCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-emerald-400 bg-emerald-400/20 rounded-full">
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/30 rounded-full">
                 {previewServerCount}
               </span>
             )}
-          </span>
-          <span
+          </button>
+          <button
+            type="button"
             onClick={() => setActivePanel("problems")}
-            className={`text-xs px-2 py-1 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors ${
               activePanel === "problems"
-                ? "text-blue-400 font-semibold"
-                : "text-zinc-600 hover:text-zinc-400"
+                ? "text-blue-400 font-semibold bg-blue-500/10"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             Problems
-          </span>
-          <span
+          </button>
+          <button
+            type="button"
             onClick={() => setActivePanel("output")}
-            className={`text-xs px-2 py-1 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors ${
               activePanel === "output"
-                ? "text-blue-400 font-semibold"
-                : "text-zinc-600 hover:text-zinc-400"
+                ? "text-blue-400 font-semibold bg-blue-500/10"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             Output
-          </span>
+          </button>
         </div>
       </div>
 

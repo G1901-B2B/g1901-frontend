@@ -76,6 +76,7 @@ export default function WorkplaceIDE({
         return (
           <CodeEditor
             task={task}
+            concept={concept}
             projectId={project.project_id}
             onComplete={handleComplete}
             initialCompleted={isCompleted}

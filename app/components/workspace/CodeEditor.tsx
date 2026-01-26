@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { type Task, completeTask } from "../../lib/api-roadmap";
+import { type Task, type Concept, completeTask } from "../../lib/api-roadmap";
 import {
   verifyTask,
   type TaskVerificationResponse,
@@ -91,6 +91,7 @@ import {
 
 interface CodeEditorProps {
   task: Task;
+  concept: Concept;
   projectId: string;
   onComplete: () => void;
   initialCompleted?: boolean;
@@ -98,6 +99,7 @@ interface CodeEditorProps {
 
 export default function CodeEditor({
   task,
+  concept,
   projectId,
   onComplete,
   initialCompleted,
@@ -166,6 +168,12 @@ export default function CodeEditor({
   const primaryPreviewUrl = activePreviewServers[0]?.url || null;
   const previewCount = activePreviewServers.length;
   const hasMultiplePreviews = previewCount > 1;
+
+  // Collect user code from open files for chatbot context
+  const userCode = openFiles.map((file) => ({
+    path: file.path,
+    content: file.content,
+  }));
 
   const handleToggleExplorer = useCallback(() => {
     setExplorerCollapsed((prev) => !prev);
@@ -1390,6 +1398,8 @@ export default function CodeEditor({
               onResetToCommit={handleResetToCommit}
               workspaceId={workspaceId || undefined}
               projectId={projectId}
+              concept={concept}
+              userCode={userCode}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

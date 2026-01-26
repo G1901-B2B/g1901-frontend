@@ -9,7 +9,6 @@ import {
 import { useProgress } from "../../hooks/useProgress";
 import DayCardsStrip from "./DayCardsStrip";
 import KanbanBoard from "./KanbanBoard";
-import ChatbotWidget from "../chatbot/ChatbotWidget";
 
 interface RoadmapPageProps {
   projectId: string;
@@ -229,14 +228,6 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
   const conceptProgressMap = progress?.concept_progress || {};
   const taskProgressMap = progress?.task_progress || {};
 
-  // Get roadmap context for chatbot
-  const roadmapContext = {
-    day_number: dayDetails?.day.day_number ?? null,
-    day_theme: dayDetails?.day.theme ?? null,
-    concept_title: conceptDetails?.concept.title ?? null,
-    subconcept_title: null,
-  };
-
   if (roadmapLoading || progressLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -268,68 +259,61 @@ export default function RoadmapPage({ projectId }: RoadmapPageProps) {
   }
 
   return (
-    <>
-      <div className="flex flex-col h-full overflow-hidden">
-        {/* Day Cards Strip */}
-        <div className="flex-shrink-0">
-          <DayCardsStrip
-            days={days}
-            currentDayId={selectedDayId}
-            onDayClick={setSelectedDayId}
-            progressMap={dayProgressMap}
-          />
-        </div>
-
-        {/* Kanban Board */}
-        <div className="flex-1 min-h-0 h-full">
-          {dayDetails && (
-            <>
-              {/* Debug: Log concepts being passed to KanbanBoard */}
-              {process.env.NODE_ENV === "development" &&
-                (() => {
-                  console.log("📊 Concepts for KanbanBoard:", {
-                    dayId: selectedDayId,
-                    dayNumber: dayDetails.day.day_number,
-                    totalConcepts: dayDetails.concepts.length,
-                    concepts: dayDetails.concepts.map((c) => ({
-                      id: c.concept_id,
-                      title: c.title,
-                      generated_status: c.generated_status,
-                      has_content: !!c.content,
-                      content_length: c.content?.length || 0,
-                      order_index: c.order_index,
-                    })),
-                    selectedConceptId: selectedConceptId,
-                    conceptProgressMapKeys: Object.keys(conceptProgressMap),
-                    conceptDetailsConceptId:
-                      conceptDetails?.concept?.concept_id,
-                    conceptDetailsHasContent:
-                      !!conceptDetails?.concept?.content,
-                    conceptDetailsContentLength:
-                      conceptDetails?.concept?.content?.length || 0,
-                  });
-                  return null;
-                })()}
-              <KanbanBoard
-                concepts={dayDetails.concepts}
-                currentConceptId={selectedConceptId}
-                conceptProgressMap={conceptProgressMap}
-                projectId={projectId}
-                taskProgress={taskProgressMap}
-                onConceptClick={handleConceptClick}
-                onStartConcept={handleStartConcept}
-                onCompleteConcept={handleCompleteConcept}
-                conceptDetails={conceptDetails}
-                loadingDetails={conceptDetailsLoading}
-                onProgressChange={refetchProgress}
-              />
-            </>
-          )}
-        </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Day Cards Strip */}
+      <div className="flex-shrink-0">
+        <DayCardsStrip
+          days={days}
+          currentDayId={selectedDayId}
+          onDayClick={setSelectedDayId}
+          progressMap={dayProgressMap}
+        />
       </div>
 
-      {/* Floating Chatbot Widget */}
-      <ChatbotWidget projectId={projectId} roadmapContext={roadmapContext} />
-    </>
+      {/* Kanban Board */}
+      <div className="flex-1 min-h-0 h-full">
+        {dayDetails && (
+          <>
+            {/* Debug: Log concepts being passed to KanbanBoard */}
+            {process.env.NODE_ENV === "development" &&
+              (() => {
+                console.log("📊 Concepts for KanbanBoard:", {
+                  dayId: selectedDayId,
+                  dayNumber: dayDetails.day.day_number,
+                  totalConcepts: dayDetails.concepts.length,
+                  concepts: dayDetails.concepts.map((c) => ({
+                    id: c.concept_id,
+                    title: c.title,
+                    generated_status: c.generated_status,
+                    has_content: !!c.content,
+                    content_length: c.content?.length || 0,
+                    order_index: c.order_index,
+                  })),
+                  selectedConceptId: selectedConceptId,
+                  conceptProgressMapKeys: Object.keys(conceptProgressMap),
+                  conceptDetailsConceptId: conceptDetails?.concept?.concept_id,
+                  conceptDetailsHasContent: !!conceptDetails?.concept?.content,
+                  conceptDetailsContentLength:
+                    conceptDetails?.concept?.content?.length || 0,
+                });
+                return null;
+              })()}
+            <KanbanBoard
+              concepts={dayDetails.concepts}
+              currentConceptId={selectedConceptId}
+              conceptProgressMap={conceptProgressMap}
+              projectId={projectId}
+              taskProgress={taskProgressMap}
+              onConceptClick={handleConceptClick}
+              onStartConcept={handleStartConcept}
+              onCompleteConcept={handleCompleteConcept}
+              conceptDetails={conceptDetails}
+              loadingDetails={conceptDetailsLoading}
+              onProgressChange={refetchProgress}
+            />
+          </>
+        )}
+      </div>
+    </div>
   );
 }

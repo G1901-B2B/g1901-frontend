@@ -63,7 +63,6 @@ Your frontend will now connect to local backend services! 🎉
 - `/api/projects/*` - Project management
 - `/api/users/*` - User management
 - `/api/roadmap/*` - Roadmap operations
-- `/api/chatbot/*` - Chatbot
 - `/api/progress/*` - Progress tracking
 - `/api/tasks/*` - Task verification
 

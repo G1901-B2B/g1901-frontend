@@ -6,7 +6,7 @@ import { CheckCircle2, GitBranch, MessageCircle } from "lucide-react";
 import GitPanel from "./GitPanel";
 import TaskPanel from "./TaskPanel";
 import ChatPanel from "./ChatPanel";
-import type { Task } from "../../lib/api-roadmap";
+import type { Task, Concept } from "../../lib/api-roadmap";
 import type { TaskVerificationResponse } from "../../lib/api-verification";
 import type {
   GitCommitEntry,
@@ -55,6 +55,8 @@ interface RightSidePanelProps {
   // Chat props
   workspaceId?: string;
   projectId?: string;
+  concept: Concept;
+  userCode: Array<{ path: string; content: string }>;
 }
 
 export default function RightSidePanel({
@@ -88,6 +90,8 @@ export default function RightSidePanel({
   onResetToCommit,
   workspaceId,
   projectId,
+  concept,
+  userCode,
 }: RightSidePanelProps) {
   const [activeTab, setActiveTab] = useState<"task" | "git" | "chat">("task");
 
@@ -173,6 +177,9 @@ export default function RightSidePanel({
         >
           <ChatPanel
             task={task}
+            concept={concept}
+            verificationResult={verificationResult}
+            userCode={userCode}
             workspaceId={workspaceId}
             projectId={projectId}
           />

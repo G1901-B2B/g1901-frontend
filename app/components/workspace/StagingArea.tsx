@@ -74,8 +74,11 @@ export default function StagingArea({
             </Button>
           )}
         </div>
-        <ScrollArea className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50">
-          <div className="p-2">
+        <ScrollArea
+          className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50"
+          showHorizontalScrollbar
+        >
+          <div className="p-2 min-w-max">
             {stagedFiles.length === 0 ? (
               <div className="p-3 text-[11px] text-zinc-600 text-center">
                 No staged files
@@ -94,7 +97,7 @@ export default function StagingArea({
                         className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? "text-red-500" : "text-emerald-400"}`}
                       />
                       <span
-                        className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
+                        className={`text-[11px] font-mono whitespace-nowrap ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
                       >
                         {file}
                       </span>
@@ -159,8 +162,11 @@ export default function StagingArea({
             </Button>
           )}
         </div>
-        <ScrollArea className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50">
-          <div className="p-2">
+        <ScrollArea
+          className="h-32 border border-zinc-800 rounded-md bg-zinc-950/50"
+          showHorizontalScrollbar
+        >
+          <div className="p-2 min-w-max">
             {unstagedFiles.length === 0 ? (
               <div className="p-3 text-[11px] text-zinc-600 text-center">
                 No unstaged files
@@ -179,7 +185,7 @@ export default function StagingArea({
                         className={`w-3 h-3 flex-shrink-0 ${status?.deleted?.includes(file) ? "text-red-500" : "text-yellow-500"}`}
                       />
                       <span
-                        className={`text-[11px] truncate font-mono ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
+                        className={`text-[11px] font-mono whitespace-nowrap ${status?.deleted?.includes(file) ? "text-red-400 line-through" : "text-zinc-300"}`}
                       >
                         {file}
                       </span>

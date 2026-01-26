@@ -226,13 +226,13 @@ export default function GitPanel({
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={onPull}
                     disabled={isLoading}
-                    className="h-8 flex-1 border-zinc-800 text-zinc-300 hover:text-white"
+                    className="h-8 w-full border-zinc-800 text-zinc-300 hover:text-white"
                   >
                     <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
                     Pull
@@ -242,7 +242,7 @@ export default function GitPanel({
                     size="sm"
                     onClick={onPush}
                     disabled={isLoading}
-                    className="h-8 flex-1 border-zinc-800 text-zinc-300 hover:text-white"
+                    className="h-8 w-full border-zinc-800 text-zinc-300 hover:text-white"
                   >
                     <ArrowUp className="w-3.5 h-3.5 mr-1.5" />
                     Push

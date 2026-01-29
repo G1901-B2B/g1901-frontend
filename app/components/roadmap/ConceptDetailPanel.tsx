@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { type ConceptDetails } from "../../lib/api-roadmap";
+import { type ConceptDetails, type Task } from "../../lib/api-roadmap";
 import {
   CheckCircle2,
   Clock,

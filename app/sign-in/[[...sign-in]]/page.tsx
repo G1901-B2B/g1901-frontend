@@ -13,8 +13,13 @@ export default function SignInPage() {
             <p className="text-[14px] text-zinc-600">
               Continue your learning journey
             </p>
+            <p className="mt-2 text-[13px] text-zinc-500">
+              You’ll stay on GitGuide—no external redirects.
+            </p>
           </div>
           <SignIn
+            routing="path"
+            path="/sign-in"
             forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
@@ -22,6 +27,9 @@ export default function SignInPage() {
                 card: "shadow-none border border-zinc-200 rounded-lg",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
+                footer: "hidden",
+                footerAction: "hidden",
+                footerActionText: "hidden",
               },
             }}
           />

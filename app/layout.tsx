@@ -46,6 +46,8 @@ export default function RootLayout({
   return (
     <ClerkProvider
       publishableKey={clerkPublishableKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
       afterSignOutUrl="/"
       appearance={{
         variables: {
@@ -66,6 +68,10 @@ export default function RootLayout({
             "focus:ring-zinc-900 focus:border-zinc-900 text-[14px] border-zinc-300",
           card: "shadow-none border border-zinc-200",
           footerActionLink: "text-zinc-900 hover:text-zinc-700",
+          // Hide any "Secured by Clerk"/branding footer UI.
+          footer: "hidden",
+          footerAction: "hidden",
+          footerActionText: "hidden",
         },
       }}
     >

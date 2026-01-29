@@ -13,8 +13,13 @@ export default function SignUpPage() {
             <p className="text-[14px] text-zinc-600">
               Transform repositories into learning journeys
             </p>
+            <p className="mt-2 text-[13px] text-zinc-500">
+              Sign up to get started with GitGuide
+            </p>
           </div>
           <SignUp
+            routing="path"
+            path="/sign-up"
             forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
@@ -22,6 +27,9 @@ export default function SignUpPage() {
                 card: "shadow-none border border-zinc-200 rounded-lg",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
+                footer: "hidden",
+                footerAction: "hidden",
+                footerActionText: "hidden",
               },
             }}
           />

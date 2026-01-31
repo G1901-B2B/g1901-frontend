@@ -1,6 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Line } from "@react-three/drei";
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 
@@ -29,7 +30,6 @@ function useScrollProgress() {
 }
 
 function RoadmapPath({ scrollProgress }: { scrollProgress: number }) {
-  const pathRef = useRef<THREE.Line>(null);
   const nodesRef = useRef<THREE.Group>(null);
 
   const { curve, points } = useMemo(() => {
@@ -45,6 +45,11 @@ function RoadmapPath({ scrollProgress }: { scrollProgress: number }) {
     const points = curve.getPoints(150);
     return { curve, points };
   }, []);
+
+  const linePoints = useMemo(
+    () => points.map((p) => [p.x, p.y, p.z] as [number, number, number]),
+    [points]
+  );
 
   const nodeData = useMemo(() => {
     return [
@@ -75,15 +80,7 @@ function RoadmapPath({ scrollProgress }: { scrollProgress: number }) {
   return (
     <group>
       {/* The glowing path line */}
-      <line ref={pathRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[new Float32Array(points.flatMap((p) => [p.x, p.y, p.z])), 3]}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial color="#3b82f6" transparent opacity={0.15} />
-      </line>
+      <Line points={linePoints} color="#3b82f6" transparent opacity={0.15} />
 
       {/* Milestone nodes - smaller */}
       <group ref={nodesRef}>

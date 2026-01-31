@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ElementType } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { type Task, completeTask } from "../../lib/api-roadmap";
 import { Input } from "../../../components/ui/input";
@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent } from "../../../components/ui/card";
 import {
+  type LucideIcon,
   Github,
   AlertCircle,
   Loader2,
@@ -462,7 +463,7 @@ export default function GitHubTaskPanel({
     }
   };
 
-  type TaskConfig = { icon: ElementType; placeholder: string; label: string };
+  type TaskConfig = { icon: LucideIcon; placeholder: string; label: string };
 
   const configMap: Partial<Record<Task["task_type"], TaskConfig>> = {
     github_profile: {

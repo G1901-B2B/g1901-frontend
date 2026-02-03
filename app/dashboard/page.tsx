@@ -46,16 +46,17 @@ async function waitForBackend() {
   }
 }
 
+async function BackendGate({ children }: { children: React.ReactNode }) {
+  await waitForBackend();
+  return <>{children}</>;
+}
+
 export default async function DashboardPage() {
   const { userId } = await auth();
 
   if (!userId) {
     redirect("/sign-in");
   }
-
-  // Wait briefly for backend to come up (hot reload / docker startup).
-  // If it doesn't, we still render the page (dashboard will degrade gracefully).
-  await waitForBackend();
 
   // Sync user data to database when they access the dashboard
   try {
@@ -69,9 +70,11 @@ export default async function DashboardPage() {
     <>
       <Header />
       <Suspense fallback={<Launching />}>
-        <Suspense fallback={<Loading />}>
-          <ProjectsLoader />
-        </Suspense>
+        <BackendGate>
+          <Suspense fallback={<Loading />}>
+            <ProjectsLoader />
+          </Suspense>
+        </BackendGate>
       </Suspense>
     </>
   );

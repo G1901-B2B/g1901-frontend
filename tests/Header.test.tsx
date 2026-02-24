@@ -31,7 +31,7 @@ describe("Header", () => {
   it("renders signed-out actions", () => {
     render(<Header />);
     expect(screen.getByText("Sign in")).toBeInTheDocument();
-    expect(screen.getByText("Get started")).toBeInTheDocument();
+    expect(screen.getByText("Sign up")).toBeInTheDocument();
     expect(screen.getByText("GitGuide")).toBeInTheDocument();
   });
 });

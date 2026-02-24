@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 const VM_BASE_URL =
   process.env.WORKSPACE_API_BASE_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://workspaces.gitguide.dev"
+    ? "http://35.223.36.148:8080"
     : "http://localhost:8002");
 
 export async function OPTIONS() {

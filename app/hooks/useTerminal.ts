@@ -9,8 +9,9 @@ import { useEffect, useRef, useCallback, useState } from "react";
 // In production, this should be the VM's HTTPS WebSocket URL (wss://)
 const API_BASE =
   process.env.NEXT_PUBLIC_WORKSPACE_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000";
+  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "https://workspaces.gitguide.dev"
+    : "http://localhost:8002");
 
 // Debug logging helper
 const DEBUG = process.env.NODE_ENV === "development";
